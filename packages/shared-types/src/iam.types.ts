@@ -1,0 +1,90 @@
+// ═══════════════════════════════════════════════════════════════
+// @platform/shared-types — IAM Types
+// ═══════════════════════════════════════════════════════════════
+
+// ─── User ──────────────────────────────────────────────────
+export interface User {
+  id: string;
+  tenantId: string | null;
+  username: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  status: UserStatus;
+  roles: Role[];
+  isMfaEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'SUSPENDED';
+
+// ─── Role ──────────────────────────────────────────────────
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  type: RoleType;
+  permissions: Permission[];
+  isSystem: boolean;
+}
+
+export type RoleType = 'SYSTEM' | 'CUSTOM';
+
+// ─── Permission ────────────────────────────────────────────
+export interface Permission {
+  id: string;
+  name: string;
+  description: string | null;
+  resource: string;
+  action: string;
+}
+
+// ─── Auth ──────────────────────────────────────────────────
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+}
+
+// ─── Session ───────────────────────────────────────────────
+export interface Session {
+  id: string;
+  userId: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  lastActivityAt: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+// ─── MFA ───────────────────────────────────────────────────
+export interface MfaSetupResponse {
+  secret: string;
+  qrCode: string;
+}
+
+export interface MfaEnableRequest {
+  secret: string;
+  token: string;
+}
