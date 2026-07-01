@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
+    "@nestjs/terminus": "^11.0.0",
     "@platform/platform-kernel": "workspace:*",
     "@platform/platform-core": "workspace:*",
     "@platform/iam": "workspace:*",
@@ -28,7 +30,7 @@
     "@platform/workflow": "workspace:*",
     "@platform/rule-engine": "workspace:*",
     "@platform/shared-types": "workspace:*",
-    "nestjs-pino": "^4.0.0",
+    "helmet": "^8.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.24.1"
