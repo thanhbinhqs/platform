@@ -1,5 +1,5 @@
 {
-  "extends": "@platform/config-typescript/base.json",
+  "extends": "./base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
     "module": "commonjs",
