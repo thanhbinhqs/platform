@@ -31,7 +31,9 @@
     "@nestjs/testing": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
     "@platform/config-typescript": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.1",
+    "bcryptjs": "^2.4.3",
     "prisma": "^6.5.0",
     "typescript": "^5.7.2"
   },

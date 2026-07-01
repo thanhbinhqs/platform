@@ -1,7 +1,7 @@
-import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { KernelModule } from '@platform/platform-kernel';
-import { ConfigModule } from '@platform/platform-core';
-import { HealthModule } from '@platform/platform-core';
+import { ConfigModule, HealthModule, PrismaModule } from '@platform/platform-core';
+import { IamModule } from '@platform/iam';
 import { AppController } from './app.controller';
 
 @Module({
@@ -12,12 +12,13 @@ import { AppController } from './app.controller';
     // Core infrastructure
     ConfigModule,
     HealthModule,
+
+    // Database
+    PrismaModule,
+
+    // IAM (authentication, users, roles, MFA)
+    IamModule,
   ],
   controllers: [AppController],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    // Helmet security headers
-    // Applied in main.ts via app.use(helmet())
-  }
-}
+export class AppModule {}

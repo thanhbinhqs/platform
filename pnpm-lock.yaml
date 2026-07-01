@@ -791,6 +791,9 @@ importers:
       '@nestjs/throttler':
         specifier: ^6.0.0
         version: 6.5.0(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)
+      '@platform/platform-core':
+        specifier: workspace:*
+        version: link:../platform-core
       '@platform/platform-kernel':
         specifier: workspace:*
         version: link:../platform-kernel
@@ -1065,9 +1068,15 @@ importers:
       '@platform/config-typescript':
         specifier: workspace:*
         version: link:../config-typescript
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       '@types/node':
         specifier: ^22.13.1
         version: 22.20.0
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       prisma:
         specifier: ^6.5.0
         version: 6.19.3(typescript@5.9.3)

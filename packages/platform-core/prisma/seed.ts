@@ -1,17 +1,20 @@
-// ─── Prisma Seed Script ───────────────────────────────────
-// Usage: npx ts-node prisma/seed.ts
-// Seeds: Tenant, System Roles, Permissions, Admin User
-
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+const SALT_ROUNDS = 12;
+const ADMIN_EMAIL = 'admin@platform.local';
+const ADMIN_PASSWORD = 'Admin@123456';
 
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // 1. Create default tenant
-  const tenant = await prisma.tenant.create({
-    data: {
+  // ── Tenants ──────────────────────────────────────────────
+  const defaultTenant = await prisma.tenant.upsert({
+    where: { slug: 'default' },
+    update: {},
+    create: {
       name: 'Default',
       slug: 'default',
       status: 'ACTIVE',
@@ -19,110 +22,157 @@ async function main() {
       features: { multiTenant: false, sso: false },
     },
   });
-  console.log(`  ✓ Tenant: ${tenant.name}`);
+  console.log(`  ✓ Tenant: ${defaultTenant.name}`);
 
-  // 2. Create system permissions
-  const permissions = [
-    // User management
-    { action: 'user:create', resource: 'users' },
-    { action: 'user:read', resource: 'users' },
-    { action: 'user:update', resource: 'users' },
-    { action: 'user:delete', resource: 'users' },
-    { action: 'user:list', resource: 'users' },
-    // Role management
-    { action: 'role:create', resource: 'roles' },
-    { action: 'role:read', resource: 'roles' },
-    { action: 'role:update', resource: 'roles' },
-    { action: 'role:delete', resource: 'roles' },
-    // Workflow
-    { action: 'workflow:create', resource: 'workflows' },
-    { action: 'workflow:read', resource: 'workflows' },
-    { action: 'workflow:update', resource: 'workflows' },
-    { action: 'workflow:delete', resource: 'workflows' },
-    { action: 'workflow:execute', resource: 'workflows' },
-    // Audit
-    { action: 'audit:read', resource: 'audit-logs' },
-    { action: 'audit:export', resource: 'audit-logs' },
-    // Settings
-    { action: 'settings:read', resource: 'settings' },
-    { action: 'settings:update', resource: 'settings' },
-    // File storage
-    { action: 'file:upload', resource: 'files' },
-    { action: 'file:read', resource: 'files' },
-    { action: 'file:delete', resource: 'files' },
+  const systemTenant = await prisma.tenant.upsert({
+    where: { slug: 'system' },
+    update: {},
+    create: {
+      name: 'System',
+      slug: 'system',
+      status: 'ACTIVE',
+      settings: {},
+      features: { multiTenant: false, sso: false },
+    },
+  });
+  console.log(`  ✓ Tenant: ${systemTenant.name}`);
+
+  // ── Permissions (CASL-style: action:resource) ───────────
+  const permissionDefs = [
+    { action: 'manage', resource: 'users' },
+    { action: 'read', resource: 'users' },
+    { action: 'create', resource: 'users' },
+    { action: 'update', resource: 'users' },
+    { action: 'delete', resource: 'users' },
+    { action: 'manage', resource: 'roles' },
+    { action: 'read', resource: 'roles' },
+    { action: 'create', resource: 'roles' },
+    { action: 'update', resource: 'roles' },
+    { action: 'delete', resource: 'roles' },
+    { action: 'manage', resource: 'tenants' },
+    { action: 'manage', resource: 'settings' },
+    { action: 'read', resource: 'settings' },
+    { action: 'manage', resource: 'system' },
+    { action: 'read', resource: 'audit-logs' },
+    { action: 'manage', resource: 'workflows' },
+    { action: 'read', resource: 'workflows' },
+    { action: 'execute', resource: 'workflows' },
   ];
 
-  for (const perm of permissions) {
-    await prisma.permission.upsert({
-      where: { action_resource: { action: perm.action, resource: perm.resource } },
+  const permissions: { id: string; action: string; resource: string }[] = [];
+  for (const def of permissionDefs) {
+    const perm = await prisma.permission.upsert({
+      where: { action_resource: { action: def.action, resource: def.resource } },
       update: {},
-      create: perm,
+      create: { action: def.action, resource: def.resource },
     });
+    permissions.push(perm);
   }
   console.log(`  ✓ ${permissions.length} permissions`);
 
-  // 3. Create system roles
-  const superAdmin = await prisma.role.create({
-    data: {
-      tenantId: tenant.id,
-      name: 'Super Admin',
+  // ── Roles ───────────────────────────────────────────────
+  const superAdminRole = await prisma.role.upsert({
+    where: {
+      tenantId_name: { tenantId: systemTenant.id, name: 'super_admin' },
+    },
+    update: {},
+    create: {
+      tenantId: systemTenant.id,
+      name: 'super_admin',
+      description: 'Full system access across all tenants',
       type: 'SYSTEM',
       isSystem: true,
-      description: 'Full system access',
       permissions: {
         create: permissions.map((p) => ({
-          permission: { connect: { action_resource: { action: p.action, resource: p.resource } } },
+          permission: { connect: { id: p.id } },
         })),
       },
     },
   });
+  console.log(`  ✓ Role: ${superAdminRole.name}`);
 
-  const admin = await prisma.role.create({
-    data: {
-      tenantId: tenant.id,
-      name: 'Admin',
+  const adminRole = await prisma.role.upsert({
+    where: {
+      tenantId_name: { tenantId: defaultTenant.id, name: 'admin' },
+    },
+    update: {},
+    create: {
+      tenantId: defaultTenant.id,
+      name: 'admin',
+      description: 'Tenant administrator',
       type: 'SYSTEM',
       isSystem: true,
-      description: 'Administrative access (no system config)',
       permissions: {
         create: permissions
-          .filter((p) => !p.action.startsWith('settings:') && p.action !== 'audit:export')
+          .filter(
+            (p) =>
+              !p.action.startsWith('manage:system') &&
+              p.resource !== 'system' &&
+              p.resource !== 'settings',
+          )
           .map((p) => ({
-            permission: { connect: { action_resource: { action: p.action, resource: p.resource } } },
+            permission: { connect: { id: p.id } },
           })),
       },
     },
   });
+  console.log(`  ✓ Role: ${adminRole.name}`);
 
-  console.log(`  ✓ Roles: ${superAdmin.name}, ${admin.name}`);
-
-  // 4. Create admin user
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@platform.local' },
+  const userRole = await prisma.role.upsert({
+    where: {
+      tenantId_name: { tenantId: defaultTenant.id, name: 'user' },
+    },
     update: {},
     create: {
-      tenantId: tenant.id,
+      tenantId: defaultTenant.id,
+      name: 'user',
+      description: 'Regular platform user',
+      type: 'CUSTOM',
+      isSystem: false,
+      permissions: {
+        create: permissions
+          .filter((p) => p.resource === 'workflows' && p.action === 'read')
+          .map((p) => ({
+            permission: { connect: { id: p.id } },
+          })),
+      },
+    },
+  });
+  console.log(`  ✓ Role: ${userRole.name}`);
+
+  // ── Admin User ──────────────────────────────────────────
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    update: { passwordHash },
+    create: {
+      tenantId: systemTenant.id,
       username: 'admin',
-      email: 'admin@platform.local',
+      email: ADMIN_EMAIL,
+      passwordHash,
       displayName: 'System Administrator',
       status: 'ACTIVE',
       emailVerifiedAt: new Date(),
-      // Default password: Admin@123 (will be changed on first login)
-      passwordHash: '$2b$10$...', // bcrypt hash placeholder
     },
   });
 
-  // Assign role
-  await prisma.userRole.create({
-    data: {
-      userId: adminUser.id,
-      roleId: superAdmin.id,
-      assignedBy: 'system',
-    },
+  // Assign super_admin role
+  const existingAssignment = await prisma.userRole.findUnique({
+    where: { userId_roleId: { userId: adminUser.id, roleId: superAdminRole.id } },
   });
-  console.log(`  ✓ Admin user: ${adminUser.email}`);
+  if (!existingAssignment) {
+    await prisma.userRole.create({
+      data: {
+        userId: adminUser.id,
+        roleId: superAdminRole.id,
+        assignedBy: 'system',
+      },
+    });
+  }
 
-  console.log('✅ Seed completed');
+  console.log(`  ✓ Admin user: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+  console.log('✅ Seed completed.');
 }
 
 main()
