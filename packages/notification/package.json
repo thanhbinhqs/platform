@@ -1,0 +1,34 @@
+{
+  "name": "@platform/notification",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "biome check src/",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/bullmq": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "rxjs": "^7.8.1"
+  },
+  "dependencies": {
+    "@platform/iam": "workspace:*",
+    "bullmq": "^5.20.0",
+    "nodemailer": "^6.9.0",
+    "twilio": "^5.4.0",
+    "web-push": "^3.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@platform/config-typescript": "workspace:*",
+    "@types/nodemailer": "^6.4.0",
+    "@types/web-push": "^3.6.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,151 @@
+# ─── Enterprise Platform - Full Stack ──────────────────────
+# Usage: docker compose -f docker/docker-compose.yml up -d
+# Starts infrastructure + all apps (builds from Dockerfiles).
+
+services:
+  # ════════════════════════════════════════════════════════════
+  # INFRASTRUCTURE
+  # ════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: platform-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - platform-net
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: platform-valkey
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - platform-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: platform-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - platform-net
+
+  # ════════════════════════════════════════════════════════════
+  # REVERSE PROXY
+  # ════════════════════════════════════════════════════════════
+  nginx:
+    image: nginx:alpine
+    container_name: platform-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/api.conf:/etc/nginx/conf.d/api.conf:ro
+      - ./nginx/admin.conf:/etc/nginx/conf.d/admin.conf:ro
+      - ./nginx/portal.conf:/etc/nginx/conf.d/portal.conf:ro
+    depends_on:
+      api:
+        condition: service_started
+      admin-web:
+        condition: service_started
+      portal-web:
+        condition: service_started
+    networks:
+      - platform-net
+
+  # ════════════════════════════════════════════════════════════
+  # BACKEND APPS
+  # ════════════════════════════════════════════════════════════
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: platform-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      VALKEY_URL: ${VALKEY_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - platform-net
+
+  # ════════════════════════════════════════════════════════════
+  # FRONTEND APPS
+  # ════════════════════════════════════════════════════════════
+  admin-web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.admin-web
+    container_name: platform-admin-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    networks:
+      - platform-net
+
+  portal-web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.portal-web
+    container_name: platform-portal-web
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - api
+    networks:
+      - platform-net
+
+volumes:
+  postgres-data:
+  valkey-data:
+  minio-data:
+
+networks:
+  platform-net:
+    name: platform-net
+    driver: bridge

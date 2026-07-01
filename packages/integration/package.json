@@ -1,0 +1,29 @@
+{
+  "name": "@platform/integration",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "biome check src/",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "rxjs": "^7.8.1"
+  },
+  "dependencies": {
+    "@nestjs/axios": "^4.0.0",
+    "@platform/notification": "workspace:*",
+    "@platform/audit": "workspace:*",
+    "axios": "^1.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@platform/config-typescript": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

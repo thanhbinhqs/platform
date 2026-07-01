@@ -1,0 +1,69 @@
+# ─── Enterprise Platform - Production Overrides ────────────
+# Usage: docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+
+services:
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./www:/var/www:ro
+
+  postgres:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    volumes:
+      - postgres-data-prod:/var/lib/postgresql/data
+
+  valkey:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  api:
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      LOG_PRETTY: "false"
+
+  worker:
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  admin-web:
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 128M
+
+  portal-web:
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres-data-prod:

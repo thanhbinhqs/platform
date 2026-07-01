@@ -1,0 +1,10 @@
+{
+  "name": "@platform/config-typescript",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "backend.json",
+    "frontend.json"
+  ]
+}

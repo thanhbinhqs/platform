@@ -1,0 +1,32 @@
+{
+  "name": "@platform/dynamic-form",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "biome check src/",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@hookform/resolvers": "^3.9.0",
+    "react-hook-form": "^7.54.0",
+    "zod": "^3.24.1"
+  },
+  "dependencies": {
+    "@platform/shared-types": "workspace:*",
+    "clsx": "^2.1.0"
+  },
+  "devDependencies": {
+    "@platform/config-typescript": "workspace:*",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
+  }
+}

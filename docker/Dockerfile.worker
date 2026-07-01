@@ -1,0 +1,46 @@
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json turbo.json tsconfig.json ./
+RUN mkdir -p apps/worker packages/platform-kernel packages/platform-core && \
+    mkdir -p packages/iam packages/cache packages/logging packages/monitoring && \
+    mkdir -p packages/audit packages/workflow packages/notification && \
+    mkdir -p packages/storage packages/integration packages/shared-types
+COPY packages/platform-kernel/package.json ./packages/platform-kernel/
+COPY packages/platform-core/package.json ./packages/platform-core/
+COPY packages/iam/package.json ./packages/iam/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/logging/package.json ./packages/logging/
+COPY packages/monitoring/package.json ./packages/monitoring/
+COPY packages/audit/package.json ./packages/audit/
+COPY packages/workflow/package.json ./packages/workflow/
+COPY packages/notification/package.json ./packages/notification/
+COPY packages/storage/package.json ./packages/storage/
+COPY packages/integration/package.json ./packages/integration/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY apps/worker/package.json ./apps/worker/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
+COPY package.json turbo.json tsconfig.json ./
+COPY packages/ ./packages/
+COPY apps/worker/ ./apps/worker/
+RUN pnpm --filter @platform/worker build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/apps/worker/dist ./dist
+COPY --from=build /app/apps/worker/package.json ./
+RUN pnpm deploy --filter @platform/worker --prod /app/prod-deps && \
+    cp -r /app/prod-deps/node_modules ./node_modules && \
+    rm -rf /app/prod-deps
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))" || exit 1
+USER node
+CMD ["node", "dist/main"]
