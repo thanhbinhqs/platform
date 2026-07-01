@@ -1,0 +1,1207 @@
+// ─── Prisma Schema v1.0 ─────────────────────────────────────
+// Enterprise Full-Stack Application Platform
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["clientExtensions", "fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════════════════
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  EXPIRED
+}
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  PENDING_VERIFICATION
+  DELETED
+}
+enum RoleType {
+  SYSTEM
+  CUSTOM
+}
+enum MfaType {
+  TOTP
+  SMS
+  EMAIL
+  RECOVERY_CODE
+}
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+  AZURE_AD
+  OKTA
+  KEYCLOAK
+  CUSTOM_OIDC
+  SAML
+  LDAP
+  APPLE
+  FACEBOOK
+}
+enum LoginStatus {
+  SUCCESS
+  FAILED_INVALID_CREDENTIALS
+  FAILED_LOCKED
+  FAILED_MFA
+  FAILED_EXPIRED_PASSWORD
+  FAILED_IP_BLOCKED
+}
+enum SecurityEventType {
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  MFA_ENABLED
+  MFA_DISABLED
+  LOGIN_FROM_NEW_DEVICE
+  LOGIN_FROM_NEW_LOCATION
+  ROLE_CHANGED
+  PERMISSION_CHANGED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  TRUSTED_DEVICE_ADDED
+  TRUSTED_DEVICE_REMOVED
+  SESSION_REVOKED
+  OAUTH_LINKED
+  OAUTH_UNLINKED
+  DELEGATION_CREATED
+  DELEGATION_REVOKED
+  PROFILE_UPDATED
+  EMAIL_CHANGED
+}
+enum DelegationStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  ERROR
+}
+enum TriggerType {
+  EVENT
+  SCHEDULE
+  MANUAL
+  WEBHOOK
+}
+enum StepType {
+  ACTION
+  CONDITION
+  PARALLEL
+  SUB_WORKFLOW
+  WAIT
+  HUMAN_TASK
+}
+enum StepOnFailure {
+  ABORT
+  SKIP
+  RETRY
+  CONTINUE
+}
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMEOUT
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+  WEBHOOK
+}
+enum NotificationChannel {
+  EMAIL_SMTP
+  SMS_TWILIO
+  PUSH_FCM
+  PUSH_APNS
+  IN_APP_WEBSOCKET
+  WEBHOOK_CALLBACK
+  SLACK
+  TEAMS
+  DISCORD
+  TELEGRAM
+}
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  READ
+  CLICKED
+  CANCELLED
+}
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  DENIED
+  ERROR
+}
+enum AuditSeverity {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum JobType {
+  CRON
+  INTERVAL
+  ONCE
+  EVENT_DRIVEN
+}
+enum JobStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  FAILED
+  COMPLETED
+  CANCELLED
+}
+
+enum StorageProvider {
+  S3
+  MINIO
+  LOCAL
+  GCS
+  AZURE_BLOB
+}
+enum IntegrationType {
+  REST
+  GRAPHQL
+  SOAP
+  MQTT
+  CUSTOM
+}
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  PENDING_VERIFICATION
+}
+
+enum Environment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+  ALL
+}
+enum FlagType {
+  BOOLEAN
+  PERCENTAGE
+  SEGMENT
+  CUSTOM
+}
+enum ConfigScope {
+  GLOBAL
+  TENANT
+  USER
+}
+enum ConfigType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  SECRET
+  REFERENCE
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — IAM
+// ═══════════════════════════════════════════════════════════════
+
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  slug      String       @unique
+  domain    String?
+  logoUrl   String?
+  status    TenantStatus @default(ACTIVE)
+  settings  Json?
+  features  Json?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  users     User[]
+  roles     Role[]
+  workflows WorkflowDefinition[]
+  auditLogs AuditLog[]
+  schedules ScheduledJob[]
+  files     StorageFile[]
+  buckets   StorageBucket[]
+  flags     FeatureFlag[]
+  configs   ConfigurationEntry[]
+  webhooks  Webhook[]
+  integrations Integration[]
+  metadataSchemas MetadataSchema[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                  String     @id @default(uuid())
+  tenantId            String?
+  username            String     @unique
+  email               String     @unique
+  phone               String?
+  passwordHash        String
+  displayName         String?
+  avatarUrl           String?
+  status              UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt     DateTime?
+  phoneVerifiedAt     DateTime?
+  lastLoginAt         DateTime?
+  passwordChangedAt   DateTime   @default(now())
+  passwordHistory     Json?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  metadata            Json?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
+  deletedBy           String?
+
+  tenant              Tenant?     @relation(fields: [tenantId], references: [id])
+  roles               UserRole[]
+  sessions            Session[]
+  mfaDevices          MfaDevice[]
+  oauthAccounts       OAuthAccount[]
+  trustedDevices      TrustedDevice[]
+  passwordResets      PasswordResetToken[]
+  loginHistory        LoginHistory[]
+  securityEvents      SecurityEvent[]
+  delegationsGiven    Delegation[] @relation("DelegationDelegator")
+  delegationsReceived Delegation[] @relation("DelegationDelegate")
+  notificationPrefs   NotificationPreference[]
+  auditLogs           AuditLog[]
+  createdFiles        StorageFile[] @relation("FileUploader")
+  metadataEntries     MetadataEntry[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  name        String
+  description String?
+  type        RoleType @default(CUSTOM)
+  isSystem    Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  tenant      Tenant?        @relation(fields: [tenantId], references: [id])
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  action      String
+  resource    String
+  description String?
+  conditions  Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@unique([action, resource])
+  @@index([action])
+  @@index([resource])
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+  expiresAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  constraints  Json?
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String
+  refreshToken   String   @unique
+  accessToken    String?
+  deviceInfo     String?
+  ipAddress      String?
+  userAgent      String?
+  isActive       Boolean  @default(true)
+  lastActivityAt DateTime @default(now())
+  expiresAt      DateTime
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@index([isActive])
+  @@map("sessions")
+}
+
+model MfaDevice {
+  id         String   @id @default(uuid())
+  userId     String
+  type       MfaType
+  secret     String
+  isVerified Boolean  @default(false)
+  lastUsedAt DateTime?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, type])
+  @@map("mfa_devices")
+}
+
+model OAuthAccount {
+  id           String       @id @default(uuid())
+  userId       String
+  provider     OAuthProvider
+  providerId   String
+  email        String?
+  name         String?
+  avatarUrl    String?
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  rawData      Json?
+  createdAt    DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model TrustedDevice {
+  id         String   @id @default(uuid())
+  userId     String
+  deviceId   String
+  deviceName String?
+  isTrusted  Boolean  @default(true)
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceId])
+  @@map("trusted_devices")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model LoginHistory {
+  id            String      @id @default(uuid())
+  userId        String
+  ipAddress     String?
+  userAgent     String?
+  deviceInfo    String?
+  status        LoginStatus
+  failureReason String?
+  location      Json?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("login_history")
+}
+
+model SecurityEvent {
+  id        String             @id @default(uuid())
+  userId    String
+  type      SecurityEventType
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+model Delegation {
+  id          String           @id @default(uuid())
+  delegatorId String
+  delegateId  String
+  roleId      String
+  permissions Json?
+  reason      String?
+  startAt     DateTime         @default(now())
+  expiresAt   DateTime?
+  status      DelegationStatus @default(ACTIVE)
+  revokedAt   DateTime?
+  revokedBy   String?
+  createdAt   DateTime         @default(now())
+
+  delegator User @relation("DelegationDelegator", fields: [delegatorId], references: [id])
+  delegate  User @relation("DelegationDelegate", fields: [delegateId], references: [id])
+
+  @@index([delegatorId])
+  @@index([delegateId])
+  @@map("delegations")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — WORKFLOW ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+model WorkflowDefinition {
+  id            String        @id @default(uuid())
+  tenantId      String?
+  name          String
+  description   String?
+  version       Int           @default(1)
+  status        WorkflowStatus @default(DRAFT)
+  triggerType   TriggerType
+  triggerConfig Json?
+  maxRetries    Int           @default(3)
+  timeout       Int?
+  tags          String[]
+  metadata      Json?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  tenant      Tenant?              @relation(fields: [tenantId], references: [id])
+  steps       WorkflowStep[]
+  transitions WorkflowTransition[]
+  executions  WorkflowExecution[]
+  schedules   WorkflowSchedule[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("workflow_definitions")
+}
+
+model WorkflowStep {
+  id         String         @id @default(uuid())
+  workflowId String
+  name       String
+  type       StepType
+  config     Json?
+  order      Int
+  retryCount Int            @default(0)
+  timeout    Int?
+  onFailure  StepOnFailure  @default(ABORT)
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+
+  workflow         WorkflowDefinition  @relation(fields: [workflowId], references: [id])
+  transitionsFrom  WorkflowTransition[] @relation("TransitionFrom")
+  transitionsTo    WorkflowTransition[] @relation("TransitionTo")
+  executions       WorkflowExecutionStep[]
+
+  @@index([workflowId])
+  @@index([workflowId, order])
+  @@map("workflow_steps")
+}
+
+model WorkflowTransition {
+  id         String   @id @default(uuid())
+  workflowId String
+  fromStepId String
+  toStepId   String
+  condition  Json?
+  label      String?
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  workflow WorkflowDefinition @relation(fields: [workflowId], references: [id])
+  fromStep WorkflowStep       @relation("TransitionFrom", fields: [fromStepId], references: [id])
+  toStep   WorkflowStep       @relation("TransitionTo", fields: [toStepId], references: [id])
+
+  @@index([workflowId])
+  @@map("workflow_transitions")
+}
+
+model WorkflowExecution {
+  id          String          @id @default(uuid())
+  workflowId  String
+  triggeredBy String?
+  status      ExecutionStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       Json?
+  startAt     DateTime        @default(now())
+  completedAt DateTime?
+  duration    Int?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  workflow WorkflowDefinition   @relation(fields: [workflowId], references: [id])
+  steps    WorkflowExecutionStep[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("workflow_executions")
+}
+
+model WorkflowExecutionStep {
+  id          String          @id @default(uuid())
+  executionId String
+  stepId      String
+  status      ExecutionStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       Json?
+  startAt     DateTime?
+  completedAt DateTime?
+  retryCount  Int             @default(0)
+  duration    Int?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  execution WorkflowExecution @relation(fields: [executionId], references: [id])
+  step      WorkflowStep      @relation(fields: [stepId], references: [id])
+
+  @@index([executionId])
+  @@index([executionId, stepId])
+  @@map("workflow_execution_steps")
+}
+
+model WorkflowSchedule {
+  id             String   @id @default(uuid())
+  workflowId     String
+  cronExpression String?
+  timezone       String   @default("UTC")
+  isActive       Boolean  @default(true)
+  startAt        DateTime?
+  endAt          DateTime?
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  workflow WorkflowDefinition @relation(fields: [workflowId], references: [id])
+
+  @@index([workflowId])
+  @@index([isActive])
+  @@map("workflow_schedules")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — RULE ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+model Rule {
+  id          String        @id @default(uuid())
+  tenantId    String?
+  name        String
+  description String?
+  priority    Int           @default(0)
+  status      WorkflowStatus @default(DRAFT)
+  event       String
+  conditions  Json?
+  actions     Json?
+  metadata    Json?
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  executions RuleExecution[]
+
+  @@index([tenantId])
+  @@index([event])
+  @@index([status, priority])
+  @@map("rules")
+}
+
+model RuleExecution {
+  id         String          @id @default(uuid())
+  ruleId     String
+  eventId    String?
+  input      Json?
+  output     Json?
+  matched    Boolean         @default(false)
+  status     ExecutionStatus @default(PENDING)
+  error      Json?
+  duration   Int?
+  executedAt DateTime        @default(now())
+
+  rule Rule @relation(fields: [ruleId], references: [id])
+
+  @@index([ruleId])
+  @@index([matched])
+  @@index([executedAt])
+  @@map("rule_executions")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — NOTIFICATION
+// ═══════════════════════════════════════════════════════════════
+
+model NotificationTemplate {
+  id              String              @id @default(uuid())
+  tenantId        String?
+  name            String
+  description     String?
+  type            NotificationType
+  channel         NotificationChannel
+  subject         String?
+  body            String
+  htmlBody        String?
+  variables       Json?
+  locale          String              @default("en")
+  metadata        Json?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  notifications Notification[]
+
+  @@unique([tenantId, name, type, channel])
+  @@index([tenantId])
+  @@index([type])
+  @@map("notification_templates")
+}
+
+model Notification {
+  id               String              @id @default(uuid())
+  tenantId         String?
+  templateId       String?
+  type             NotificationType
+  channel          NotificationChannel
+  recipientId      String?
+  recipientAddress String
+  subject          String?
+  body             String?
+  status           NotificationStatus  @default(PENDING)
+  priority         NotificationPriority @default(NORMAL)
+  metadata         Json?
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  readAt           DateTime?
+  error            Json?
+  createdAt        DateTime            @default(now())
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([tenantId])
+  @@index([recipientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String              @id @default(uuid())
+  userId          String
+  channel         NotificationChannel
+  isEnabled       Boolean             @default(true)
+  quietHoursStart String?
+  quietHoursEnd   String?
+  digest          Boolean             @default(false)
+  digestInterval  JobType?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, channel])
+  @@map("notification_preferences")
+}
+
+model NotificationGroup {
+  id            String   @id @default(uuid())
+  tenantId      String?
+  name          String
+  description   String?
+  subscriptions Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  @@index([tenantId])
+  @@map("notification_groups")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — AUDIT
+// ═══════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  tenantId      String?
+  userId        String?
+  action        String
+  resource      String
+  resourceId    String?
+  ipAddress     String?
+  userAgent     String?
+  sessionId     String?
+  requestId     String?
+  correlationId String?
+  oldValue      Json?
+  newValue      Json?
+  diff          Json?
+  metadata      Json?
+  status        AuditStatus  @default(SUCCESS)
+  severity      AuditSeverity @default(INFO)
+  duration      Int?
+  timestamp     DateTime     @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action, resource])
+  @@index([timestamp])
+  @@index([correlationId])
+  @@index([status])
+  @@map("audit_logs")
+}
+
+model AuditPolicy {
+  id             String    @id @default(uuid())
+  tenantId       String?
+  action         String
+  resource       String
+  retentionDays  Int       @default(365)
+  isCritical     Boolean   @default(false)
+  alertOnFailure Boolean   @default(false)
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  @@unique([tenantId, action, resource])
+  @@map("audit_policies")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — SCHEDULER
+// ═══════════════════════════════════════════════════════════════
+
+model ScheduledJob {
+  id             String    @id @default(uuid())
+  tenantId       String?
+  name           String
+  type           JobType
+  handler        String
+  queue          String?
+  config         Json?
+  cronExpression String?
+  interval       Int?
+  timezone       String    @default("UTC")
+  maxRetries     Int       @default(3)
+  retryDelay     Int       @default(60)
+  timeout        Int?
+  isActive       Boolean   @default(true)
+  startAt        DateTime?
+  endAt          DateTime?
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  metadata       Json?
+  tags           String[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  tenant     Tenant?       @relation(fields: [tenantId], references: [id])
+  executions JobExecution[]
+
+  @@index([tenantId])
+  @@index([isActive, nextRunAt])
+  @@index([handler])
+  @@map("scheduled_jobs")
+}
+
+model JobExecution {
+  id           String    @id @default(uuid())
+  jobId        String
+  tenantId     String?
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  status       JobStatus @default(IDLE)
+  input        Json?
+  output       Json?
+  error        Json?
+  duration     Int?
+  retryAttempt Int       @default(0)
+  workerId     String?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+
+  job ScheduledJob @relation(fields: [jobId], references: [id])
+
+  @@index([jobId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("job_executions")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — STORAGE
+// ═══════════════════════════════════════════════════════════════
+
+model StorageBucket {
+  id               String          @id @default(uuid())
+  tenantId         String?
+  name             String
+  provider         StorageProvider @default(MINIO)
+  config           Json?
+  isPublic         Boolean         @default(false)
+  maxSize          Int?
+  allowedMimeTypes String[]
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  tenant Tenant?      @relation(fields: [tenantId], references: [id])
+  files  StorageFile[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("storage_buckets")
+}
+
+model StorageFile {
+  id                String         @id @default(uuid())
+  tenantId          String?
+  bucketId          String
+  name              String
+  originalName      String
+  mimeType          String
+  size              Int            // bytes
+  path              String
+  url               String?
+  provider          StorageProvider @default(MINIO)
+  checksum          String?
+  checksumAlgorithm String?
+  width             Int?
+  height            Int?
+  metadata          Json?
+  uploadedBy        String?
+  expiresAt         DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  deletedAt         DateTime?
+  deletedBy         String?
+
+  tenant   Tenant?       @relation(fields: [tenantId], references: [id])
+  bucket   StorageBucket @relation(fields: [bucketId], references: [id])
+  uploader User?         @relation("FileUploader", fields: [uploadedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([bucketId])
+  @@index([uploadedBy])
+  @@index([mimeType])
+  @@map("storage_files")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+
+model Integration {
+  id                String            @id @default(uuid())
+  tenantId          String?
+  name              String
+  type              IntegrationType
+  provider          String
+  version           String?
+  status            IntegrationStatus @default(ACTIVE)
+  config            Json?
+  credentials       Json?             // encrypted
+  rateLimit         Int?
+  timeout           Int?
+  retryConfig       Json?
+  healthCheckUrl    String?
+  lastHealthCheckAt DateTime?
+  lastHealthStatus  String?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  deletedBy         String?
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([type])
+  @@map("integrations")
+}
+
+model Webhook {
+  id               String   @id @default(uuid())
+  tenantId         String?
+  name             String
+  url              String
+  secret           String?  // hashed
+  events           Json?    // subscribed events
+  isActive         Boolean  @default(true)
+  retryConfig      Json?
+  timeout          Int?
+  lastTriggeredAt  DateTime?
+  lastResponse     Json?
+  lastStatus       Int?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id              String   @id @default(uuid())
+  webhookId       String
+  event           String
+  payload         Json?
+  requestHeaders  Json?
+  responseHeaders Json?
+  status          NotificationStatus @default(PENDING)
+  statusCode      Int?
+  duration        Int?
+  error           String?
+  attempt         Int      @default(1)
+  maxRetries      Int      @default(3)
+  nextRetryAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id])
+
+  @@index([webhookId])
+  @@index([status])
+  @@map("webhook_deliveries")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — FEATURE FLAG
+// ═══════════════════════════════════════════════════════════════
+
+model FeatureFlag {
+  id          String      @id @default(uuid())
+  tenantId    String?
+  name        String
+  key         String
+  description String?
+  isEnabled   Boolean     @default(false)
+  environment Environment @default(ALL)
+  type        FlagType    @default(BOOLEAN)
+  rules       Json?
+  metadata    Json?
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  tenant   Tenant?             @relation(fields: [tenantId], references: [id])
+  segments FeatureFlagSegment[]
+
+  @@unique([key])
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([isEnabled])
+  @@map("feature_flags")
+}
+
+model FeatureFlagSegment {
+  id             String   @id @default(uuid())
+  flagId         String
+  name           String
+  conditions     Json?    // user attribute conditions
+  isActive       Boolean  @default(true)
+  priority       Int      @default(0)
+  rollbackPercent Float?  // 0.0 - 100.0
+  createdAt      DateTime @default(now())
+
+  flag FeatureFlag @relation(fields: [flagId], references: [id])
+
+  @@index([flagId])
+  @@map("feature_flag_segments")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — METADATA
+// ═══════════════════════════════════════════════════════════════
+
+model MetadataSchema {
+  id         String   @id @default(uuid())
+  tenantId   String?
+  name       String
+  entityType String
+  schema     Json?    // JSON Schema definition
+  version    Int      @default(1)
+  isActive   Boolean  @default(true)
+  isRequired Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  deletedBy  String?
+
+  tenant  Tenant?        @relation(fields: [tenantId], references: [id])
+  entries MetadataEntry[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([entityType])
+  @@map("metadata_schemas")
+}
+
+model MetadataEntry {
+  id         String   @id @default(uuid())
+  schemaId   String
+  entityId   String
+  entityType String
+  data       Json?
+  version    Int      @default(1)
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  schema MetadataSchema @relation(fields: [schemaId], references: [id])
+  user   User?          @relation(fields: [createdBy], references: [id])
+
+  @@unique([schemaId, entityId])
+  @@index([schemaId])
+  @@index([entityId, entityType])
+  @@map("metadata_entries")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+model ConfigurationEntry {
+  id          String      @id @default(uuid())
+  tenantId    String?
+  key         String
+  value       Json?
+  scope       ConfigScope @default(GLOBAL)
+  description String?
+  type        ConfigType  @default(STRING)
+  isEncrypted Boolean     @default(false)
+  isSystem    Boolean     @default(false)
+  version     Int         @default(1)
+  tags        String[]
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@unique([key, scope, tenantId])
+  @@index([tenantId])
+  @@index([scope])
+  @@map("configuration_entries")
+}

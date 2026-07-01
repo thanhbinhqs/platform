@@ -1,0 +1,183 @@
+@startuml Database ERD
+!theme plain
+skinparam backgroundColor #1a1a2e
+skinparam entity {
+  BackgroundColor #16213e
+  BorderColor #0f3460
+  FontColor #e94560
+}
+skinparam package {
+  BackgroundColor #1a1a2e
+  BorderColor #0f3460
+  FontColor #e94560
+}
+
+package "IAM" {
+  entity Tenant {
+    * id: UUID <<PK>>
+    --
+    * name: String
+    * slug: String <<unique>>
+    * status: TenantStatus
+    * settings: Json?
+  }
+
+  entity User {
+    * id: UUID <<PK>>
+    * tenantId: UUID <<FK>>
+    --
+    * username: String <<unique>>
+    * email: String <<unique>>
+    * passwordHash: String
+    * status: UserStatus
+  }
+
+  entity Role {
+    * id: UUID <<PK>>
+    * tenantId: UUID <<FK>>
+    --
+    * name: String
+    * type: RoleType
+    * isSystem: Boolean
+  }
+
+  entity Permission {
+    * id: UUID <<PK>>
+    --
+    * action: String
+    * resource: String
+  }
+
+  entity UserRole {
+    * userId: UUID <<FK>>
+    * roleId: UUID <<FK>>
+  }
+
+  entity RolePermission {
+    * roleId: UUID <<FK>>
+    * permissionId: UUID <<FK>>
+  }
+
+  entity Session {
+    * id: UUID <<PK>>
+    * userId: UUID <<FK>>
+    --
+    * refreshToken: String <<unique>>
+    * isActive: Boolean
+    * expiresAt: DateTime
+  }
+
+  Tenant ||--o{ User : ""
+  Tenant ||--o{ Role : ""
+  User }|--o{ Role : "via"
+  Role }|--o{ Permission : "via"
+  User ||--o{ Session : ""
+}
+
+package "Workflow" {
+  entity WorkflowDefinition {
+    * id: UUID <<PK>>
+    * tenantId: UUID <<FK>>
+    * name: String
+    * status: WorkflowStatus
+  }
+
+  entity WorkflowStep {
+    * id: UUID <<PK>>
+    * workflowId: UUID <<FK>>
+    * name: String
+    * type: StepType
+    * order: Int
+  }
+
+  entity WorkflowExecution {
+    * id: UUID <<PK>>
+    * workflowId: UUID <<FK>>
+    * status: ExecutionStatus
+    * input: Json?
+  }
+
+  Tenant ||--o{ WorkflowDefinition : ""
+  WorkflowDefinition ||--o{ WorkflowStep : ""
+  WorkflowDefinition ||--o{ WorkflowExecution : ""
+}
+
+package "Audit" {
+  entity AuditLog {
+    * id: UUID <<PK>>
+    * userId: UUID?
+    * action: String
+    * resource: String
+    * timestamp: DateTime
+  }
+
+  Tenant ||--o{ AuditLog : ""
+}
+
+package "Notification" {
+  entity Notification {
+    * id: UUID <<PK>>
+    * type: NotificationType
+    * status: NotificationStatus
+    * recipientAddress: String
+  }
+
+  entity NotificationTemplate {
+    * id: UUID <<PK>>
+    * name: String
+    * type: NotificationType
+    * body: String
+  }
+
+  NotificationTemplate ||--o{ Notification : ""
+}
+
+package "Storage" {
+  entity StorageBucket {
+    * id: UUID <<PK>>
+    * tenantId: UUID <<FK>>
+    * name: String
+    * provider: StorageProvider
+  }
+
+  entity StorageFile {
+    * id: UUID <<PK>>
+    * bucketId: UUID <<FK>>
+    * name: String
+    * size: Int
+    * mimeType: String
+  }
+
+  Tenant ||--o{ StorageBucket : ""
+  StorageBucket ||--o{ StorageFile : ""
+}
+
+package "Platform" {
+  entity ConfigurationEntry {
+    * id: UUID <<PK>>
+    * key: String
+    * value: Json?
+    * scope: ConfigScope
+  }
+
+  entity FeatureFlag {
+    * id: UUID <<PK>>
+    * name: String <<unique>>
+    * key: String <<unique>>
+    * isEnabled: Boolean
+  }
+
+  entity ScheduledJob {
+    * id: UUID <<PK>>
+    * name: String
+    * type: JobType
+    * handler: String
+    * isActive: Boolean
+  }
+
+  Tenant ||--o{ ConfigurationEntry : ""
+  Tenant ||--o{ FeatureFlag : ""
+  Tenant ||--o{ ScheduledJob : ""
+}
+
+@enduml
