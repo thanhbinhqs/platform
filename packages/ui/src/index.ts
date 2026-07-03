@@ -43,3 +43,7 @@ export { cn } from './lib/utils';
 export { Toaster } from './toaster';
 export { DataGrid } from './data-grid/data-grid';
 export type { DataGridProps, DataGridColumn, ColumnMeta } from './data-grid/data-grid';
+export { CustomDataGrid } from './custom-data-grid';
+export type { CustomDataGridProps } from './custom-data-grid';
+export { RestDataSource, LocalDataSource, GridEventBus, GridEventType, SelectionPlugin, ScannerPlugin, defaultTheme, darkTheme, highContrastTheme } from './custom-data-grid';
+export type { IDataSource, GridRequest, GridResponse, GridPlugin, GridFeatures, GridThemeTokens, ContextMenuItem, SortModel, FilterModel } from './custom-data-grid';
