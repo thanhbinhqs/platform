@@ -4,11 +4,12 @@
 import { useCallback, useState, useRef, type KeyboardEvent, type DragEvent } from 'react';
 import {
   useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel,
+  getGroupedRowModel, getExpandedRowModel,
   flexRender, type ColumnDef, type SortingState, type VisibilityState,
   type RowSelectionState, type Row, type HeaderGroup, type Cell,
-  type ColumnMeta,
+  type ColumnMeta, type RowData,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, ChevronsUpDown, GripVertical, Pin, PinOff, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, GripVertical, Pin, PinOff, Info, ChevronRight, ChevronDown as ChevronDownIcon, Layers } from 'lucide-react';
 
 interface Props<TData> {
   data: TData[];
@@ -27,6 +28,8 @@ interface Props<TData> {
   enableRowDragDrop?: boolean;
   enableColumnReorder?: boolean;
   enableColumnResize?: boolean;
+  enableMultiSorting?: boolean;
+  enableRowGrouping?: boolean;
   stripedRows?: boolean;
   enableAuditTrail?: boolean;
   density: { cell: string; font: string; row: string };
@@ -35,6 +38,9 @@ interface Props<TData> {
   onRowDragEnd?: (dragIndex: number, dropIndex: number) => void;
   onRowPin?: (id: string, position: 'top' | 'bottom' | false) => void;
   onColumnReorder?: (fromIndex: number, toIndex: number) => void;
+  onMultiSortChange?: (sorting: SortingState) => void;
+  onGroupingChange?: (grouping: string[]) => void;
+  grouping?: string[];
   rowClassName?: (row: TData) => string | undefined;
   focusedCell?: { row: number; col: string } | null;
   onFocusChange?: (cell: { row: number; col: string }) => void;
@@ -50,8 +56,9 @@ export function VirtualTable<TData extends { id?: string | number }>({
   data, columns, sorting, onSortingChange, columnVisibility, onColumnVisibilityChange,
   rowSelection, onRowSelectionChange, enableSelection, enableMultiSelect, enableSorting,
   enableColumnPinning, enableRowPinning, enableRowDragDrop, enableColumnReorder, enableColumnResize,
-  stripedRows, enableAuditTrail, density,
+  enableMultiSorting, enableRowGrouping, stripedRows, enableAuditTrail, density,
   onRowClick, onRowContextMenu, onRowDragEnd, onRowPin, onColumnReorder, rowClassName,
+  onMultiSortChange, onGroupingChange, grouping = [],
   focusedCell, onFocusChange, editingCell, onEditingCellChange, onCellEdit,
   pinnedRows, auditHistory, classNames,
 }: Props<TData>) {
@@ -63,13 +70,25 @@ export function VirtualTable<TData extends { id?: string | number }>({
 
   const table = useReactTable({
     data, columns,
-    state: { sorting, columnVisibility, rowSelection },
-    onSortingChange: onSortingChange as any,
+    state: { sorting, columnVisibility, rowSelection, grouping },
+    onSortingChange: (updater) => {
+      const newSorting = typeof updater === 'function' ? updater(sorting) : updater;
+      onSortingChange(newSorting);
+      onMultiSortChange?.(newSorting);
+    },
     onColumnVisibilityChange: onColumnVisibilityChange as any,
     onRowSelectionChange: onRowSelectionChange as any,
+    onGroupingChange: (updater) => {
+      const newGrouping = typeof updater === 'function' ? updater(grouping) : updater;
+      onGroupingChange?.(newGrouping);
+    },
     enableRowSelection: enableSelection,
+    enableMultiSort: enableMultiSorting,
+    isMultiSortEvent: () => enableMultiSorting ? true : false,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
+    getGroupedRowModel: enableRowGrouping ? getGroupedRowModel() : undefined,
+    getExpandedRowModel: enableRowGrouping ? getExpandedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
     debugTable: false,
   });
@@ -184,7 +203,14 @@ export function VirtualTable<TData extends { id?: string | number }>({
                     onDragEnd={enableColumnReorder ? () => setColDragIndex(null) : undefined}>
                     <div className="flex items-center gap-1">
                       {flexRender(h.column.columnDef.header, h.getContext())}
-                      {cs && <span className="shrink-0 text-muted-foreground/50">{h.column.getIsSorted() === 'asc' ? <ChevronUp size={14} /> : h.column.getIsSorted() === 'desc' ? <ChevronDown size={14} /> : <ChevronsUpDown size={14} />}</span>}
+                      {cs && <span className="shrink-0 text-muted-foreground/50">
+                        {h.column.getIsSorted() === 'asc' ? <ChevronUp size={14} /> :
+                         h.column.getIsSorted() === 'desc' ? <ChevronDown size={14} /> :
+                         <ChevronsUpDown size={14} />}
+                        {h.column.getIsSorted() && enableMultiSorting && (
+                          <span className="ml-0.5 text-[10px] font-bold text-primary">{h.column.getSortIndex() + 1}</span>
+                        )}
+                      </span>}
                     </div>
                     {enableColumnResize && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-border hover:bg-primary" />}
                   </th>
@@ -243,6 +269,14 @@ export function VirtualTable<TData extends { id?: string | number }>({
         {enableRowDragDrop && (
           <td className={`${density.cell} w-8 text-muted-foreground cursor-grab active:cursor-grabbing`}>
             <GripVertical size={14} />
+          </td>
+        )}
+        {/* Group expand/collapse */}
+        {enableRowGrouping && row.getIsGrouped() && (
+          <td className={`${density.cell} w-8`}>
+            <button className="rounded p-0.5 hover:bg-accent" onClick={(e) => { e.stopPropagation(); row.getToggleExpandedHandler()(); }}>
+              {row.getIsExpanded() ? <ChevronDownIcon size={16} /> : <ChevronRight size={16} />}
+            </button>
           </td>
         )}
         {enableSelection && (

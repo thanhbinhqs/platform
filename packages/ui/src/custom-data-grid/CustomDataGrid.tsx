@@ -279,6 +279,8 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
               enableRowDragDrop={features.enableRowDragDrop}
               enableColumnReorder={features.enableColumnReorder}
               enableColumnResize={features.enableColumnResize}
+              enableMultiSorting={features.enableMultiSorting}
+              enableRowGrouping={features.enableRowGrouping}
               stripedRows={features.stripedRows}
               enableAuditTrail={features.enableAuditTrail}
               density={den}
