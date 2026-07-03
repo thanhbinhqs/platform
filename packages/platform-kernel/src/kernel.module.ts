@@ -8,6 +8,11 @@ import { TransformInterceptor } from './interceptors/transform.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+
+import { EmailService } from './services/email.service';
+
+import { AuditLogInterceptor } from './interceptors/audit-log.interceptor';
 
 const globalProviders: Provider[] = [
   // Global filters (order: Http → Prisma → All)
@@ -19,14 +24,16 @@ const globalProviders: Provider[] = [
   { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
   { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
   { provide: APP_INTERCEPTOR, useClass: TimeoutInterceptor },
+  { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
 
   // Global guards
   { provide: APP_GUARD, useClass: JwtAuthGuard },
+  { provide: APP_GUARD, useClass: PermissionsGuard },
 ];
 
 @Global()
 @Module({
-  providers: globalProviders,
-  exports: [],
+  providers: [...globalProviders, EmailService],
+  exports: [EmailService],
 })
 export class KernelModule {}

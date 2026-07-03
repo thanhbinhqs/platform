@@ -68,3 +68,4 @@ export { formatDate, isExpired, addDays, durationMs } from './helpers/date.helpe
 
 // ─── Module ─────────────────────────────────────────────────
 export { KernelModule } from './kernel.module';
+export { EmailService } from './services/email.service';

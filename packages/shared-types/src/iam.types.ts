@@ -12,12 +12,23 @@ export interface User {
   avatarUrl: string | null;
   status: UserStatus;
   roles: Role[];
+  permissions: string[];
+  directPermissions?: UserPermissionOverride[];
   isMfaEnabled: boolean;
+  sessionId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'SUSPENDED';
+
+export interface UserPermissionOverride {
+  id: string;
+  action: string;
+  resource: string;
+  effect: 'ALLOW' | 'DENY';
+  name: string;
+}
 
 // ─── Role ──────────────────────────────────────────────────
 export interface Role {

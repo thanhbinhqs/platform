@@ -42,6 +42,11 @@ export class CreateUserDto {
   @IsArray()
   @IsUUID('4', { each: true })
   roleIds?: string[];
+
+  @ApiPropertyOptional({ type: [Object], description: 'Direct user permission overrides' })
+  @IsOptional()
+  @IsArray()
+  directPermissions?: { permissionId: string; effect: 'ALLOW' | 'DENY' }[];
 }
 
 export class UpdateUserDto {
@@ -82,4 +87,9 @@ export class UpdateUserDto {
   @IsArray()
   @IsUUID('4', { each: true })
   roleIds?: string[];
+
+  @ApiPropertyOptional({ type: [Object], description: 'Direct user permission overrides' })
+  @IsOptional()
+  @IsArray()
+  directPermissions?: { permissionId: string; effect: 'ALLOW' | 'DENY' }[];
 }

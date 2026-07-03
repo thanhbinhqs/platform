@@ -294,6 +294,7 @@ model User {
 
   tenant              Tenant?     @relation(fields: [tenantId], references: [id])
   roles               UserRole[]
+  permissions         UserPermission[]
   sessions            Session[]
   mfaDevices          MfaDevice[]
   oauthAccounts       OAuthAccount[]
@@ -346,6 +347,7 @@ model Permission {
   createdAt   DateTime @default(now())
 
   roles RolePermission[]
+  users UserPermission[]
 
   @@unique([action, resource])
   @@index([action])
@@ -380,6 +382,26 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
+}
+
+model UserPermission {
+  userId       String
+  permissionId String
+  effect       PermissionEffect @default(ALLOW)
+  constraints  Json?
+  createdAt    DateTime         @default(now())
+  assignedBy   String?
+
+  user       User       @relation(fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userId, permissionId])
+  @@map("user_permissions")
 }
 
 model Session {

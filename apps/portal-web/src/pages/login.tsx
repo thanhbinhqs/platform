@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@platform/ui';
 import { useAuthStore } from '@platform/hooks';
 import { authApi } from '@platform/api-client';
@@ -7,8 +7,8 @@ import { authApi } from '@platform/api-client';
 export function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@platform.local');
+  const [password, setPassword] = useState('Admin@123456');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,13 +18,20 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await authApi.login({ email, password });
-      localStorage.setItem('accessToken', data.data.accessToken);
-      localStorage.setItem('refreshToken', data.data.refreshToken);
-      setAuth(data.data.user, data.data.accessToken, data.data.refreshToken);
+      const { data: loginRes } = await authApi.login({ email, password });
+      const { accessToken, refreshToken } = loginRes.data;
+
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+
+      // Fetch full user profile
+      const { data: meRes } = await authApi.me();
+      setAuth(meRes.data, accessToken, refreshToken);
+
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
+      const message =
+        err instanceof Error ? err.message : 'Login failed';
       setError(message);
     } finally {
       setLoading(false);
@@ -36,6 +43,9 @@ export function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Platform Portal</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sign in to your account
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,6 +75,11 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
+            <div className="text-center text-sm text-muted-foreground">
+              <Link to="/forgot-password" className="hover:text-primary transition-colors">
+                Forgot password?
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>

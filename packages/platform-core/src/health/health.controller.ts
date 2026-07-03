@@ -6,6 +6,7 @@ import {
   HealthCheckResult,
   MemoryHealthIndicator,
 } from '@nestjs/terminus';
+import { Public } from '@platform/platform-kernel';
 
 @ApiTags('Health')
 @Controller('health')
@@ -16,6 +17,7 @@ export class HealthController {
   ) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Liveness probe — is the service alive?' })
   @HealthCheck()
   async liveness(): Promise<HealthCheckResult> {
@@ -25,6 +27,7 @@ export class HealthController {
   }
 
   @Get('readiness')
+  @Public()
   @ApiOperation({ summary: 'Readiness probe — is the service ready?' })
   @HealthCheck()
   async readiness(): Promise<HealthCheckResult> {

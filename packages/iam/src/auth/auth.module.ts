@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
         expiresIn: process.env.JWT_EXPIRATION ?? '15m',
       } as any,
     }),
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],

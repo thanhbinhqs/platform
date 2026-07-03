@@ -40,3 +40,4 @@ export { ThemeProvider, useTheme } from './components/theme-provider';
 
 // ─── Utilities ─────────────────────────────────────────────
 export { cn } from './lib/utils';
+export { Toaster } from './toaster';

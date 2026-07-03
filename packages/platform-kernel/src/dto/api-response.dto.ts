@@ -2,6 +2,20 @@ import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import type { Type } from '@nestjs/common';
 
 /**
+ * Standard API error details.
+ */
+export class ApiErrorDto {
+  @ApiProperty({ description: 'Error code string' })
+  code!: string;
+
+  @ApiProperty({ description: 'Human-readable message' })
+  message!: string;
+
+  @ApiProperty({ required: false, description: 'Validation errors' })
+  details?: Record<string, string[]>;
+}
+
+/**
  * API response envelope.
  * Every response follows { success, data, meta, error }.
  */
@@ -17,17 +31,6 @@ export class ApiResponseDto<T = unknown> {
 
   @ApiProperty({ required: false, description: 'Error details' })
   error?: ApiErrorDto;
-}
-
-export class ApiErrorDto {
-  @ApiProperty({ description: 'Error code string' })
-  code!: string;
-
-  @ApiProperty({ description: 'Human-readable message' })
-  message!: string;
-
-  @ApiProperty({ required: false, description: 'Validation errors' })
-  details?: Record<string, string[]>;
 }
 
 /**

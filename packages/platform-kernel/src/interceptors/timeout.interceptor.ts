@@ -8,7 +8,11 @@ import { catchError, timeout } from 'rxjs/operators';
  */
 @Injectable()
 export class TimeoutInterceptor implements NestInterceptor {
-  constructor(private readonly timeoutMs = 30000) {}
+  private readonly timeoutMs: number;
+
+  constructor() {
+    this.timeoutMs = 30000;
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(

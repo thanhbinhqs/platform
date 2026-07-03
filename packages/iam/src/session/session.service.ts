@@ -1,35 +1,79 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '@platform/platform-core';
 
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
 
-  constructor() {
-    // Inject PrismaService + Redis/Valkey when available
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
-  async createSession(userId: string, token: string, metadata?: Record<string, unknown>) {
-    // TODO: Persist session in DB + Valkey
-    return { id: 'placeholder-session-id', userId, token };
+  async createSession(
+    userId: string,
+    refreshToken: string,
+    metadata?: { deviceInfo?: string; ipAddress?: string; userAgent?: string },
+  ): Promise<{ id: string; userId: string; refreshToken: string; deviceInfo: string | null; ipAddress: string | null; userAgent: string | null; isActive: boolean; expiresAt: Date; createdAt: Date }> {
+    const session = await this.prisma.client.session.create({
+      data: {
+        userId,
+        refreshToken,
+        deviceInfo: metadata?.deviceInfo ?? null,
+        ipAddress: metadata?.ipAddress ?? null,
+        userAgent: metadata?.userAgent ?? null,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      },
+    });
+    return session;
   }
 
   async validateSession(sessionId: string): Promise<boolean> {
-    // TODO: Check Valkey for active session
+    const session = await this.prisma.client.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session || !session.isActive || session.expiresAt < new Date()) {
+      return false;
+    }
     return true;
   }
 
-  async revokeSession(sessionId: string): Promise<void> {
-    this.logger.log(`Revoking session: ${sessionId}`);
-    // TODO: Delete from Valkey + mark expired in DB
+  async revokeSession(sessionId: string, userId: string): Promise<void> {
+    const session = await this.prisma.client.session.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+    await this.prisma.client.session.update({
+      where: { id: sessionId },
+      data: { isActive: false },
+    });
+    this.logger.log(`Session ${sessionId} revoked by user ${userId}`);
   }
 
   async revokeAllUserSessions(userId: string, exceptSessionId?: string): Promise<void> {
-    this.logger.log(`Revoking all sessions for user ${userId}`);
-    // TODO: Bulk revoke
+    await this.prisma.client.session.updateMany({
+      where: {
+        userId,
+        isActive: true,
+        ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}),
+      },
+      data: { isActive: false },
+    });
+    this.logger.log(`All sessions revoked for user ${userId}`);
   }
 
   async getActiveSessions(userId: string) {
-    // TODO: Query from Valkey
-    return [];
+    return this.prisma.client.session.findMany({
+      where: { userId, isActive: true, expiresAt: { gt: new Date() } },
+      orderBy: { lastActivityAt: 'desc' },
+      select: {
+        id: true,
+        deviceInfo: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        lastActivityAt: true,
+        expiresAt: true,
+      },
+    });
   }
 }

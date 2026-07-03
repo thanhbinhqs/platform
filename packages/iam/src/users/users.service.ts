@@ -27,6 +27,12 @@ export class UsersService {
         },
       },
     },
+    permissions: {
+      select: {
+        permission: { select: { id: true, action: true, resource: true } },
+        effect: true,
+      },
+    },
   } as const;
 
   async create(dto: CreateUserDto) {
@@ -117,6 +123,20 @@ export class UsersService {
       });
     }
 
+    if (dto.directPermissions) {
+      // Replace all direct user permissions
+      await this.prisma.client.userPermission.deleteMany({ where: { userId: id } });
+      if (dto.directPermissions.length > 0) {
+        await this.prisma.client.userPermission.createMany({
+          data: dto.directPermissions.map((dp) => ({
+            userId: id,
+            permissionId: dp.permissionId,
+            effect: dp.effect,
+          })),
+        });
+      }
+    }
+
     const updated = await this.prisma.client.user.update({
       where: { id },
       data: updateData as any,
@@ -148,6 +168,13 @@ export class UsersService {
       roles: (user.roles ?? []).map((ur: any) => ({
         id: ur.role.id,
         name: ur.role.name,
+      })),
+      permissions: (user.permissions ?? []).map((up: any) => ({
+        id: up.permission.id,
+        action: up.permission.action,
+        resource: up.permission.resource,
+        effect: up.effect,
+        name: `${up.permission.action}:${up.permission.resource}`,
       })),
     };
   }

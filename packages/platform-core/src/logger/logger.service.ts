@@ -9,8 +9,8 @@ import { Injectable, Logger, type LogLevel } from '@nestjs/common';
 export class LoggerService {
   private readonly logger: Logger;
 
-  constructor(context = 'Application') {
-    this.logger = new Logger(context);
+  constructor() {
+    this.logger = new Logger('Application');
   }
 
   setContext(context: string): void {
