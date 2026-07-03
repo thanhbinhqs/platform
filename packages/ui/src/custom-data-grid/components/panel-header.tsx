@@ -17,13 +17,15 @@ interface Props {
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
   onExport?: () => void;
+  showSplitCompare?: boolean;
+  onSplitCompare?: () => void;
   searchPlaceholder?: string;
 }
 
 export function PanelHeader({
   title, globalSearch, onSearchChange, columns, visibility, onVisibilityChange,
   density, onDensityChange, selectedCount, bulkActions, actionButtons,
-  onExport, searchPlaceholder = 'Search…',
+  onExport, showSplitCompare, onSplitCompare, searchPlaceholder = 'Search…',
 }: Props) {
   const [showColMenu, setShowColMenu] = useState(false);
   const [showDenMenu, setShowDenMenu] = useState(false);
@@ -72,6 +74,13 @@ export function PanelHeader({
           <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
             onClick={onExport}>
             <Download size={14} /> Export
+          </button>
+        )}
+
+        {showSplitCompare && (
+          <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+            onClick={onSplitCompare}>
+            ⊞ Split
           </button>
         )}
 

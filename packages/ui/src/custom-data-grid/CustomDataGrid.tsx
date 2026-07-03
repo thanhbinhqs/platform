@@ -82,6 +82,7 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
   const [page, setPage] = useState(1);
   const [pageSizeState, setPageSizeState] = useState(pageSize);
   const [density, setDensity] = useState('standard');
+  const [pinnedRows, setPinnedRows] = useState<{ top: string[]; bottom: string[] }>({ top: [], bottom: [] });
 
   const ds = props.dataSource;
   const busRef = useRef(new GridEventBus());
@@ -172,6 +173,16 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
     if (action === 'delete' && ds?.delete) { ds.delete(row.id).then(() => loadData()); }
   }, [ds, loadData, bus]);
 
+  // ── Debounce global search ──
+  const debounceTimer = useRef<any>(null);
+  const debouncedSearch = useCallback((value: string) => {
+    setGlobalSearch(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      loadData(1);
+    }, 400);
+  }, [loadData]);
+
   // ── Render ──
   const themeVars = themeToTailwind(props.theme ?? defaultTheme);
 
@@ -182,7 +193,7 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
         <PanelHeader
           title={title}
           globalSearch={globalSearch}
-          onSearchChange={v => { setGlobalSearch(v); }}
+          onSearchChange={debouncedSearch}
           columns={headerColumns}
           visibility={colVis}
           onVisibilityChange={setColVis}
@@ -191,15 +202,27 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
           selectedCount={selectedIds.length}
           bulkActions={bulkActions}
           actionButtons={actionButtons}
+          showSplitCompare={features.showSplitCompare}
+          onSplitCompare={() => toast?.info?.('Split/Compare mode toggled') || console.log('Split/Compare')}
           onExport={features.enableExport ? () => {
             bus.emit(GridEventType.ExportStarted, { format: 'csv' });
-            // Simple CSV export
-            const headers = columns.map((c: any) => c.accessorKey || c.id || '').filter(Boolean);
-            const rows = dataState.map((r: any) => headers.map((h: string) => String(r[h] ?? '')).join(','));
-            const csv = [headers.join(','), ...rows].join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${title || 'export'}.csv`; a.click();
-            bus.emit(GridEventType.ExportCompleted, { format: 'csv', rows: dataState.length });
+            const totalRows = dataState.length;
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+              progress = Math.min(progress + 10, 100);
+              bus.emit(GridEventType.ExportProgress, { progress });
+              if (progress >= 100) clearInterval(progressInterval);
+            }, 100);
+            // Async CSV export
+            setTimeout(() => {
+              const headers = columns.map((c: any) => c.accessorKey || c.id || '').filter(Boolean);
+              const rows = dataState.map((r: any) => headers.map((h: string) => String(r[h] ?? '')).join(','));
+              const csv = [headers.join(','), ...rows].join('\n');
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${title || 'export'}.csv`; a.click();
+              clearInterval(progressInterval);
+              bus.emit(GridEventType.ExportCompleted, { format: 'csv', rows: totalRows });
+            }, 100);
           } : undefined}
           searchPlaceholder={searchPlaceholder}
         />
@@ -249,21 +272,44 @@ function GridInner<TData extends { [key: string]: any; id?: string | number }>(p
               rowSelection={rowSel}
               onRowSelectionChange={setRowSel}
               enableSelection={features.enableRowSelection}
+              enableMultiSelect={features.enableMultiSelect}
               enableSorting={features.enableSorting ?? true}
               enableColumnPinning={features.enableColumnPinning}
-              enableGrouping={features.enableRowGrouping}
+              enableRowPinning={features.enableRowPinning}
+              enableRowDragDrop={features.enableRowDragDrop}
+              enableColumnReorder={features.enableColumnReorder}
+              enableColumnResize={features.enableColumnResize}
+              stripedRows={features.stripedRows}
+              enableAuditTrail={features.enableAuditTrail}
               density={den}
               onRowClick={(row) => {
                 if (drawerContent) { setDrawerData(row); setDrawerOpen(true); }
                 onRowClick?.(row);
               }}
               onRowContextMenu={(row, pos) => { setCtxRow(row); setCtxMenu(pos); }}
+              onRowDragEnd={(from, to) => {
+                const newData = [...dataState];
+                const [moved] = newData.splice(from, 1);
+                newData.splice(to, 0, moved);
+                setDataState(newData);
+                bus.emit(GridEventType.RowDragged, { from, to });
+              }}
+              onRowPin={(id, position) => {
+                const pins = { ...pinnedRows };
+                ['top', 'bottom'].forEach(p => {
+                  pins[p] = pins[p]?.filter((x: string) => x !== id) || [];
+                });
+                if (position) pins[position] = [...(pins[position] || []), id];
+                setPinnedRows(pins);
+                bus.emit(GridEventType.RowPinned, { id, position });
+              }}
+              onColumnReorder={(from, to) => bus.emit(GridEventType.ColumnReordered, { from, to })}
               focusedCell={focusedCell}
               onFocusChange={setFocusedCell}
               editingCell={editingCell}
               onEditingCellChange={setEditingCell}
               rowClassName={rowClassName}
-              emitEvent={(type, payload) => bus.emit(type as any, payload)}
+              pinnedRows={pinnedRows}
             />
           )}
         </div>

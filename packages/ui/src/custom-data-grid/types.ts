@@ -20,8 +20,11 @@ declare module '@tanstack/react-table' {
 export interface GridFeatures {
   enablePagination?: boolean;
   enableRowSelection?: boolean;
+  enableMultiSelect?: boolean;
   enableColumnPinning?: boolean;
+  enableRowPinning?: boolean;
   enableSorting?: boolean;
+  enableMultiSorting?: boolean;
   enableFilter?: boolean;
   showSidebarFilter?: boolean;
   showPanelHeader?: boolean;
@@ -29,10 +32,16 @@ export interface GridFeatures {
   enableVirtualization?: boolean;
   enableInlineEditing?: boolean;
   enableRowGrouping?: boolean;
+  enableRowDragDrop?: boolean;
+  enableColumnReorder?: boolean;
+  enableColumnResize?: boolean;
   enableExport?: boolean;
   enableScanner?: boolean;
   enableRealtime?: boolean;
   enableKeyboardNav?: boolean;
+  stripedRows?: boolean;
+  showSplitCompare?: boolean;
+  enableAuditTrail?: boolean;
 }
 
 // ─── Grid Request / Response ────────────────────────────────────
@@ -79,6 +88,10 @@ export enum GridEventType {
   PageChanged = 'PageChanged',
   ContextMenuOpened = 'ContextMenuOpened',
   RowPinned = 'RowPinned',
+  AuditTrailHover = 'AuditTrailHover',
+  RowDragged = 'RowDragged',
+  ColumnReordered = 'ColumnReordered',
+  ExportProgress = 'ExportProgress',
 }
 
 export interface GridEvent {
@@ -150,6 +163,7 @@ export interface IDataSource<TData> {
   update?(id: string | number, data: Partial<TData>): Promise<TData>;
   delete?(id: string | number): Promise<boolean>;
   bulkDelete?(ids: (string | number)[]): Promise<boolean>;
+  reorder?(ids: (string | number)[]): Promise<boolean>;
 }
 
 // ─── Plugin ─────────────────────────────────────────────────────
@@ -175,6 +189,15 @@ export interface GridPluginHooks<TData> {
   rowClassName: (row: TData) => string | undefined;
 }
 
+// ─── Audit Trail ────────────────────────────────────────────────
+export interface AuditEntry {
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+  changedBy: string;
+  changedAt: string;
+}
+
 // ─── Grid State ─────────────────────────────────────────────────
 export interface GridState<TData> {
   data: TData[];
@@ -190,5 +213,8 @@ export interface GridState<TData> {
   selectedRows: Record<string, boolean>;
   columnVisibility: Record<string, boolean>;
   columnPinning: Record<string, 'left' | 'right' | false>;
+  columnOrder: string[];
   density: 'compact' | 'standard' | 'comfortable';
+  pinnedRows: { top: string[]; bottom: string[] };
+  auditHistory: Record<string, AuditEntry[]>;
 }
