@@ -21,6 +21,7 @@ import { IntegrationsPage } from './pages/integrations';
 import { NotificationsPage } from './pages/notifications';
 import { FeatureFlagsPage } from './pages/feature-flags';
 import { StoragePage } from './pages/storage';
+import { DataGridDemoPage } from './pages/data-grid-demo';
 import { ApiKeysPage } from './pages/api-keys';
 import { ProductsPage } from './pages/products';
 import { OrdersPage } from './pages/orders';
@@ -78,6 +79,7 @@ export function App() {
               <Route path="feature-flags" element={<FeatureFlagsPage />} />
               <Route path="storage" element={<StoragePage />} />
               <Route path="api-keys" element={<ApiKeysPage />} />
+              <Route path="data-grid-demo" element={<DataGridDemoPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="invoices" element={<InvoicesPage />} />

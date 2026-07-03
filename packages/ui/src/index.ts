@@ -41,3 +41,5 @@ export { ThemeProvider, useTheme } from './components/theme-provider';
 // ─── Utilities ─────────────────────────────────────────────
 export { cn } from './lib/utils';
 export { Toaster } from './toaster';
+export { DataGrid } from './data-grid/data-grid';
+export type { DataGridProps, DataGridColumn, ColumnMeta } from './data-grid/data-grid';

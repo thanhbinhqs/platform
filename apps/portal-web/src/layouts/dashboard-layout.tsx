@@ -23,6 +23,7 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Integrations', href: '/integrations', icon: '🔌', permission: 'manage:settings' },
   { label: 'Feature Flags', href: '/feature-flags', icon: '🚩', permission: 'manage:settings' },
   { label: 'API Keys', href: '/api-keys', icon: '🔑' },
+  { label: 'DataGrid Demo', href: '/data-grid-demo', icon: '📊' },
   { label: 'Storage', href: '/storage', icon: '💾' },
   { label: 'Products', href: '/products', icon: '📦', permission: 'manage:settings' },
   { label: 'Orders', href: '/orders', icon: '🛒' },
