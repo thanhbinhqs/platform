@@ -22,6 +22,9 @@ import { NotificationsPage } from './pages/notifications';
 import { FeatureFlagsPage } from './pages/feature-flags';
 import { StoragePage } from './pages/storage';
 import { ApiKeysPage } from './pages/api-keys';
+import { ProductsPage } from './pages/products';
+import { OrdersPage } from './pages/orders';
+import { InvoicesPage } from './pages/invoices';
 import { DashboardLayout } from './layouts/dashboard-layout';
 import { ProtectedRoute } from './components/protected-route';
 import { ErrorBoundary } from './components/error-boundary';
@@ -75,6 +78,9 @@ export function App() {
               <Route path="feature-flags" element={<FeatureFlagsPage />} />
               <Route path="storage" element={<StoragePage />} />
               <Route path="api-keys" element={<ApiKeysPage />} />
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="invoices" element={<InvoicesPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

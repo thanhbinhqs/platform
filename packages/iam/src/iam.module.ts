@@ -18,6 +18,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RulesModule } from './rules/rules.module';
 import { WorkflowsModule } from './workflows/workflows.module';
+import { SalesModule } from './sales/sales.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AdminModule } from './admin/admin.module';
@@ -33,6 +34,7 @@ import { MfaModule } from './mfa/mfa.module';
     StorageModule, ScheduledJobsModule, IntegrationsModule,
     WebhooksModule, NotificationsModule, RulesModule,
     WorkflowsModule,
+    SalesModule,
     OAuthModule, ApiKeysModule,
     AdminModule, MfaModule,
   ],
@@ -44,6 +46,7 @@ import { MfaModule } from './mfa/mfa.module';
     StorageModule, ScheduledJobsModule, IntegrationsModule,
     WebhooksModule, NotificationsModule, RulesModule,
     WorkflowsModule,
+    SalesModule,
     OAuthModule, ApiKeysModule,
     AdminModule, MfaModule,
   ],

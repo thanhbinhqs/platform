@@ -308,6 +308,7 @@ model User {
   auditLogs           AuditLog[]
   createdFiles        StorageFile[] @relation("FileUploader")
   metadataEntries     MetadataEntry[]
+  orders              Order[]
 
   @@index([tenantId])
   @@index([email])
@@ -1226,4 +1227,189 @@ model ConfigurationEntry {
   @@index([tenantId])
   @@index([scope])
   @@map("configuration_entries")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELS — SALES
+// ═══════════════════════════════════════════════════════════════
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  DISCONTINUED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  E_WALLET
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  icon        String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  categoryId  String?
+  name        String
+  sku         String        @unique
+  description String?
+  price       Decimal       @db.Decimal(12, 2)
+  compareAt   Decimal?      @db.Decimal(12, 2)
+  costPrice   Decimal?      @db.Decimal(12, 2)
+  unit        String        @default("piece")
+  stock       Int           @default(0)
+  lowStock    Int           @default(5)
+  imageUrl    String?
+  status      ProductStatus @default(ACTIVE)
+  tags        String[]
+  metadata    Json?
+  createdBy   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  category  ProductCategory? @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([sku])
+  @@index([status])
+  @@map("products")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  userId          String?
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  customerAddress String?
+  notes           String?
+  status          OrderStatus @default(PENDING)
+  subtotal        Decimal     @db.Decimal(12, 2)
+  tax             Decimal     @db.Decimal(12, 2) @default(0)
+  shipping        Decimal     @db.Decimal(12, 2) @default(0)
+  discount        Decimal     @db.Decimal(12, 2) @default(0)
+  total           Decimal     @db.Decimal(12, 2)
+  metadata        Json?
+  createdBy       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user    User?       @relation(fields: [userId], references: [id])
+  items   OrderItem[]
+  invoice Invoice?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String?
+  name      String
+  sku       String?
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  total     Decimal @db.Decimal(12, 2)
+  metadata  Json?
+
+  order   Order    @relation(fields: [orderId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  orderId       String        @unique
+  invoiceNumber String        @unique
+  status        InvoiceStatus @default(DRAFT)
+  amount        Decimal       @db.Decimal(12, 2)
+  paidAmount    Decimal       @db.Decimal(12, 2) @default(0)
+  dueDate       DateTime?
+  issuedAt      DateTime      @default(now())
+  paidAt        DateTime?
+  notes         String?
+  metadata      Json?
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  order    Order     @relation(fields: [orderId], references: [id])
+  payments Payment[]
+
+  @@index([invoiceNumber])
+  @@index([status])
+  @@map("invoices")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  invoiceId     String
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod @default(CASH)
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  reference     String?
+  notes         String?
+  paidAt        DateTime?
+  metadata      Json?
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@map("payments")
 }

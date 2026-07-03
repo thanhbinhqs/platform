@@ -24,6 +24,9 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Feature Flags', href: '/feature-flags', icon: '🚩', permission: 'manage:settings' },
   { label: 'API Keys', href: '/api-keys', icon: '🔑' },
   { label: 'Storage', href: '/storage', icon: '💾' },
+  { label: 'Products', href: '/products', icon: '📦', permission: 'manage:settings' },
+  { label: 'Orders', href: '/orders', icon: '🛒' },
+  { label: 'Invoices', href: '/invoices', icon: '🧾' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
   { label: 'Audit Logs', href: '/audit-logs', icon: '📋', permission: 'read:audit-logs' },
 ];
