@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
@@ -22,9 +22,9 @@ export class RolesController {
   @Get()
   @Permissions('manage:roles')
   @ApiOperation({ summary: 'List all roles' })
-  async findAll() {
-    return this.rolesService.findAll();
-  }
+  async findAll(@Query('page') page?: number, @Query('limit') limit?: number, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string) {
+   return this.rolesService.findAll({ page: page ? Number(page) : undefined, limit: limit ? Number(limit) : undefined, search, sortField, sortDir });
+ }
 
   @Get(':id')
   @Permissions('manage:roles')
