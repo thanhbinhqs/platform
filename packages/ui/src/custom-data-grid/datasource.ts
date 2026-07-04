@@ -4,7 +4,15 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { IDataSource, GridRequest, GridResponse } from './types';
-const apiClient = typeof window !== 'undefined' ? require('@platform/api-client')?.default || { get: () => Promise.resolve({data:{data:[]}}) } : null as any;
+
+// ─── Simple HTTP helper (no external dependency) ──────────────────
+async function httpRequest(url: string, options?: { method?: string; body?: unknown; headers?: Record<string, string> }) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...options?.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { method: options?.method || 'GET', headers, body: options?.body ? JSON.stringify(options.body) : undefined });
+  return res.json();
+}
 
 // ─── REST Data Source ────────────────────────────────────────────
 export class RestDataSource<TData extends Record<string, unknown>> implements IDataSource<TData> {
@@ -21,8 +29,8 @@ export class RestDataSource<TData extends Record<string, unknown>> implements ID
       params.set('sortField', request.sorts[0].field);
       params.set('sortDir', request.sorts[0].dir);
     }
-    const r = await apiClient.get(`${this.baseUrl}?${params}`);
-    const d = r.data.data || r.data;
+    const r = await httpRequest(`${this.baseUrl}?${params}`);
+    const d = r.data || r;
     const items: TData[] = this.options?.transform ? (d.data || d).map((item: TData) => this.options!.transform!(item)) : (d.data || d);
     return {
       data: items,
@@ -34,22 +42,27 @@ export class RestDataSource<TData extends Record<string, unknown>> implements ID
   }
 
   async create(data: Partial<TData>): Promise<TData> {
-    const r = await apiClient.post(this.baseUrl, data);
-    return r.data.data || r.data;
+    const r = await httpRequest(this.baseUrl, { method: 'POST', body: data });
+    return r.data || r;
   }
 
   async update(id: string | number, data: Partial<TData>): Promise<TData> {
-    const r = await apiClient.put(`${this.baseUrl}/${id}`, data);
-    return r.data.data || r.data;
+    const r = await httpRequest(`${this.baseUrl}/${id}`, { method: 'PUT', body: data });
+    return r.data || r;
   }
 
   async delete(id: string | number): Promise<boolean> {
-    await apiClient.delete(`${this.baseUrl}/${id}`);
+    await httpRequest(`${this.baseUrl}/${id}`, { method: 'DELETE' });
     return true;
   }
 
   async bulkDelete(ids: (string | number)[]): Promise<boolean> {
-    await apiClient.post(`${this.baseUrl}/bulk-delete`, { ids });
+    await httpRequest(`${this.baseUrl}/bulk-delete`, { method: 'POST', body: { ids } });
+    return true;
+  }
+
+  async reorder(ids: (string | number)[]): Promise<boolean> {
+    await httpRequest(`${this.baseUrl}/reorder`, { method: 'POST', body: { ids } });
     return true;
   }
 }
@@ -65,16 +78,10 @@ export class LocalDataSource<TData extends Record<string, unknown>> implements I
 
   async load(request: GridRequest): Promise<GridResponse<TData>> {
     let filtered = [...this.allData];
-
-    // Global search
     if (request.globalSearch) {
       const q = request.globalSearch.toLowerCase();
-      filtered = filtered.filter((item) =>
-        Object.values(item).some((v) => String(v).toLowerCase().includes(q))
-      );
+      filtered = filtered.filter((item) => Object.values(item).some((v) => String(v).toLowerCase().includes(q)));
     }
-
-    // Sorting
     if (request.sorts?.length) {
       const s = request.sorts[0];
       filtered.sort((a, b) => {
@@ -83,18 +90,10 @@ export class LocalDataSource<TData extends Record<string, unknown>> implements I
         return s.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
       });
     }
-
     const total = filtered.length;
     const start = (request.page - 1) * request.pageSize;
     const data = filtered.slice(start, start + request.pageSize);
-
-    return {
-      data,
-      total,
-      page: request.page,
-      pageSize: request.pageSize,
-      totalPages: Math.ceil(total / request.pageSize),
-    };
+    return { data, total, page: request.page, pageSize: request.pageSize, totalPages: Math.ceil(total / request.pageSize) };
   }
 
   async create(data: Partial<TData>): Promise<TData> {
@@ -117,6 +116,13 @@ export class LocalDataSource<TData extends Record<string, unknown>> implements I
 
   async bulkDelete(ids: (string | number)[]): Promise<boolean> {
     this.allData = this.allData.filter((d: any) => !ids.includes(d.id));
+    return true;
+  }
+
+  async reorder(ids: (string | number)[]): Promise<boolean> {
+    const reordered = ids.map((id) => this.allData.find((d: any) => d.id === id)).filter(Boolean);
+    const remaining = this.allData.filter((d: any) => !ids.includes(d.id));
+    this.allData = [...reordered, ...remaining];
     return true;
   }
 }

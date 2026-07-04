@@ -1,111 +1,90 @@
-import { useMemo, useState, useCallback, useRef } from 'react';
-import { CustomDataGrid, RestDataSource, type CustomDataGridProps, SelectionPlugin, ScannerPlugin } from '@platform/ui';
-import type { ContextMenuItem } from '@platform/ui';
+import { useMemo, useState, useCallback } from 'react';
+import { DataGrid, type DataGridColumn } from '@platform/ui';
 import { toast } from '@platform/hooks';
 
-interface User {
+interface DemoItem {
   id: string;
-  username: string;
-  email: string;
-  displayName: string | null;
+  code: string;
+  name: string;
+  category: string;
   status: string;
-  createdAt: string;
-  [key: string]: unknown;
+  quantity: number;
+  price: number;
+  location: string;
 }
 
+const statuses = ['ACTIVE', 'IN_USE', 'MAINTENANCE', 'RETIRED', 'DAMAGED', 'CALIBRATION'];
+const categories = ['Jig-Frame', 'Jig-Base', 'Jig-Insert', 'Fixture', 'Pallet', 'Carrier', 'Gauge', 'Tool'];
+const locations = ['Warehouse-A1', 'Line-01', 'Line-03', 'QC-Lab', 'Tool-Crib'];
+
+function generateData(count: number): DemoItem[] {
+  const data: DemoItem[] = [];
+  for (let i = 1; i <= count; i++) {
+    data.push({
+      id: `JIG-${String(i).padStart(4, '0')}`,
+      code: `JIG-${String(i).padStart(4, '0')}`,
+      name: `Precision Fixture ${i}`,
+      category: categories[i % categories.length]!,
+      status: statuses[i % statuses.length]!,
+      quantity: Math.floor(Math.random() * 50) + 1,
+      price: Math.round((Math.random() * 9500 + 500) * 100) / 100,
+      location: locations[i % locations.length]!,
+    });
+  }
+  return data;
+}
+
+const mockData = generateData(100);
+
 export function DataGridDemoPage() {
-  const [selection, setSelection] = useState<User[]>([]);
-  const counterRef = useRef(0);
+  const [selection, setSelection] = useState<DemoItem[]>([]);
 
-  // REST DataSource pointing to our users API
-  const dataSource = useMemo(() => new RestDataSource<User>('/users'), []);
-
-  const columns = useMemo(() => [
-    { accessorKey: 'username', header: 'Username', meta: { filterType: 'text' } },
-    { accessorKey: 'email', header: 'Email' },
-    { accessorKey: 'displayName', header: 'Display Name', cell: ({ getValue }: any) => (getValue() as string) || '—' },
+  const columns = useMemo<DataGridColumn<DemoItem>[]>(() => [
+    { accessorKey: 'code', header: 'Code' },
+    { accessorKey: 'name', header: 'Name' },
+    { accessorKey: 'category', header: 'Category' },
     {
-      accessorKey: 'status', header: 'Status', meta: { align: 'center' },
-      cell: ({ getValue }: any) => {
+      accessorKey: 'status', header: 'Status',
+      cell: ({ getValue }) => {
         const s = getValue() as string;
-        const colors: Record<string, string> = { ACTIVE: 'bg-green-100 text-green-700', INACTIVE: 'bg-gray-100 text-gray-500', LOCKED: 'bg-red-100 text-red-700', PENDING_VERIFICATION: 'bg-yellow-100 text-yellow-700' };
-        return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[s] || ''}`}>{s}</span>;
+        return <span className="font-medium">{s}</span>;
       },
     },
-    { accessorKey: 'createdAt', header: 'Created', meta: { align: 'right' }, cell: ({ getValue }: any) => new Date(getValue() as string).toLocaleDateString() },
+    { accessorKey: 'quantity', header: 'Qty' },
+    {
+      accessorKey: 'price', header: 'Price',
+      cell: ({ getValue }) => `$${Number(getValue()).toFixed(2)}`,
+    },
+    { accessorKey: 'location', header: 'Location' },
   ], []);
 
-  const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
-    { label: 'View Details', icon: '👁️', action: 'view' },
-    { label: 'Edit User', icon: '✏️', action: 'edit' },
-    { label: '—', action: '', divider: true },
-    { label: 'Delete', icon: '🗑️', action: 'delete', disabled: (row) => row.username === 'admin' },
-  ], []);
-
-  const rowClassName = useCallback((row: User) => {
-    if (row.status === 'LOCKED') return 'bg-red-50 dark:bg-red-950/20';
-    if (row.status === 'INACTIVE') return 'opacity-60';
+  const rowClassName = useCallback((row: DemoItem) => {
+    if (row.status === 'DAMAGED') return 'bg-red-50';
+    if (row.status === 'MAINTENANCE') return 'bg-yellow-50';
     return undefined;
   }, []);
 
-  const handleEvent = useCallback((event: any) => {
-    counterRef.current++;
-    if (counterRef.current % 5 === 0) {
-      toast.info(`Event: ${event.type}`);
-    }
-  }, []);
-
-  const features = {
-    enablePagination: true,
-    enableRowSelection: true,
-    enableColumnPinning: true,
-    enableSorting: true,
-    showPanelHeader: true,
-    showSidebarFilter: true,
-    enableContextMenu: true,
-    enableInlineEditing: true,
-    enableExport: true,
-    enableScanner: true,
-    enableKeyboardNav: true,
-  };
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">📊 Enterprise CustomDataGrid</h1>
-        {selection.length > 0 && (
-          <span className="text-sm text-muted-foreground">{selection.length} selected</span>
-        )}
-      </div>
-
-      <CustomDataGrid
+      <h1 className="text-2xl font-bold">📊 DataGrid — 100 Rows</h1>
+      {selection.length > 0 && (
+        <span className="text-sm text-muted-foreground">{selection.length} selected</span>
+      )}
+      <DataGrid
         columns={columns}
-        dataSource={dataSource}
-        title="Users"
-        features={features}
-        pageSize={10}
-        plugins={[SelectionPlugin() as any, ScannerPlugin({ onScan: (code) => toast.info(`Scanned: ${code}`) }) as any]}
-        contextMenuItems={contextMenuItems}
+        data={mockData}
+        title="Jig Inventory"
+        enableSelection
+        enableSorting
+        enableColumnVisibility
+        enableExport
+        enableDensity
         onSelectionChange={setSelection}
-        onEvent={handleEvent}
-        rowClassName={rowClassName}
-        drawerTitle={(row) => `User: ${row.username}`}
-        drawerContent={(row) => (
-          <div className="space-y-3 text-sm">
-            <div><strong>ID:</strong> {row.id}</div>
-            <div><strong>Username:</strong> {row.username}</div>
-            <div><strong>Email:</strong> {row.email}</div>
-            <div><strong>Display Name:</strong> {row.displayName || '—'}</div>
-            <div><strong>Status:</strong> {row.status}</div>
-            <div><strong>Created:</strong> {new Date(row.createdAt).toLocaleString()}</div>
-          </div>
-        )}
-        actionButtons={
-          <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
-            onClick={() => toast.success('Custom action triggered')}>
-            + Add User
-          </button>
-        }
+        onRowClick={(row) => toast.info(`Clicked: ${row.code}`)}
+        classNames={{}}
+        pageSize={15}
+        pageSizeOptions={[10, 15, 25, 50, 100]}
+        emptyMessage="No data"
       />
     </div>
   );

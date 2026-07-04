@@ -1,0 +1,54 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @platform/platform-kernel run build
+      - run: pnpm --filter @platform/iam run build
+      - run: pnpm --filter api run build
+      - run: pnpm --filter @platform/portal-web run build
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: platform_test
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @platform/platform-core exec prisma generate
+      - run: pnpm --filter @platform/platform-core exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://platform:***@localhost:5432/platform_test

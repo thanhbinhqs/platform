@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMediaQuery, useAuthStore, hasPermission } from '@platform/hooks';
 import { ThemeToggle } from '../components/theme-toggle';
+import { NotificationBell } from '../components/notification-bell';
 import { useState, useMemo } from 'react';
 
 type SidebarItem = {
@@ -107,8 +108,9 @@ export function DashboardLayout() {
           ))}
         </nav>
 
-        {/* Theme toggle */}
-        <div className="border-t p-3">
+        {/* Notifications + Theme toggle */}
+        <div className="border-t p-3 space-y-2">
+          <NotificationBell />
           <ThemeToggle />
         </div>
 
