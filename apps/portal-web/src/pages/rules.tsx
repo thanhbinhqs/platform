@@ -73,6 +73,7 @@ export function RulesPage() {
         enableSelection
         enableSorting
         enableExport
+        enableColumnResize
         enableDensity
         pageSize={pageSize}
         onSelectionChange={setSelection}

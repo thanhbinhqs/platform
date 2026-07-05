@@ -43,6 +43,7 @@ export interface AppDataGridProps<TData> {
   enableSelection?: boolean;
   enableSorting?: boolean;
   enableExport?: boolean;
+  enableColumnResize?: boolean;
   enableDensity?: boolean;
   pageSize?: number;
   onRowClick?: (row: TData) => void;
@@ -68,7 +69,7 @@ export interface AppDataGridProps<TData> {
 
 export function AppDataGrid<TData extends { id?: string | number }>({
   columns, data, title, filterFields = [], bulkActions = [], tableActions = [],
-  enableSelection, enableSorting, enableExport, enableDensity,
+  enableSelection, enableSorting, enableExport, enableColumnResize, enableDensity,
   pageSize = 20, onRowClick, onSelectionChange,
   emptyMessage, loading, onSearch, serverSide,
 }: AppDataGridProps<TData>) {
@@ -259,6 +260,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           title=""
           enableSelection={enableSelection}
           enableSorting={enableSorting}
+          enableColumnResize={enableColumnResize}
           enableExport={false}
           enableDensity={enableDensity}
           pageSize={pageSize}
