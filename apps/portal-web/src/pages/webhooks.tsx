@@ -4,7 +4,7 @@ import { DataGrid, type DataGridColumn, Skeleton } from '@platform/ui';
 interface Item { id: string; [key: string]: unknown; }
 export function WebhooksPage() {
   const [selection, setSelection] = useState<Item[]>([]);
-  const { data, isLoading } = useQuery({ queryKey: ['webhooks'], queryFn: async () => { const r = await fetch('/api/v1/webhooks', { headers: { 'Content-Type': 'application/json' } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []); } });
+  const { data, isLoading } = useQuery({ queryKey: ['webhooks'], queryFn: async () => { const r = await fetch('/api/v1/webhooks', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []); } });
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'url', header: 'URL', cell: ({ getValue }) => <span className='text-xs font-mono'>{getValue() as string}</span> },
@@ -12,7 +12,7 @@ export function WebhooksPage() {
     { accessorKey: 'createdAt', header: 'Created', cell: ({ getValue }) => new Date(getValue() as string).toLocaleDateString() },
   ], []);
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
-  return (<div className="space-y-4"><h1 className="text-2xl font-bold">Webhooks</h1>
+  return (<div className="h-full flex flex-col space-y-4 overflow-hidden"><h1 className="text-2xl font-bold">Webhooks</h1>
     <DataGrid columns={columns} data={data || []} title="Webhooks" enableSorting enableColumnVisibility enableExport enableDensity onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No webhooks found." />
   </div>);
 }

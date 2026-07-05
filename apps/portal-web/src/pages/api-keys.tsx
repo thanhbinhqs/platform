@@ -15,7 +15,7 @@ export function ApiKeysPage() {
   const [newKey, setNewKey] = useState('');
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">🔑 API Keys</h1>
         <Button onClick={() => setShowCreate(!showCreate)}>{showCreate ? 'Cancel' : 'New Key'}</Button>

@@ -10,7 +10,7 @@ export function NotificationsPage() {
   const items = Array.isArray(data) ? data : [];
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <h1 className="text-2xl font-bold">🔔 Notifications</h1>
       {isLoading ? [1,2,3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />) :
         items.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No notifications yet.</p> :

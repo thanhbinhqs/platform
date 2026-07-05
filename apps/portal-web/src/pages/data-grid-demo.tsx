@@ -65,7 +65,7 @@ export function DataGridDemoPage() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <h1 className="text-2xl font-bold">📊 DataGrid — 100 Rows</h1>
       {selection.length > 0 && (
         <span className="text-sm text-muted-foreground">{selection.length} selected</span>

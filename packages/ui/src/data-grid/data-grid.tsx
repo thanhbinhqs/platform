@@ -211,7 +211,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   }
 
   return (
-    <div className={`space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
+    <div className={`flex flex-1 flex-col min-h-0 space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
       {/* ── Panel Header ── */}
       {Boolean(title || enableExport || enableColumnVisibility || enableDensity || actionButtons) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
@@ -277,11 +277,11 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       )}
 
       {/* ── Table Area ── */}
-      <div className="overflow-auto rounded-lg border bg-card">
+      <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-card">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="mt-3 text-sm">Loading data…</p>
+            <p className="mt-3 text-sm">Loading data\u2026</p>
           </div>
         )}
         {!isLoading && error && (
@@ -305,7 +305,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
       {/* ── Pagination ── */}
       {!isLoading && !error && data.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm">
           <div className="text-xs text-muted-foreground">
             {pageIndex * pag.pageSize + 1}–{Math.min((pageIndex + 1) * pag.pageSize, total)} of {total}
             {hasSel && ` · ${selRows.length} selected`}
