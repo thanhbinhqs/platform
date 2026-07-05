@@ -296,7 +296,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           </div>
         )}
         {!isLoading && !error && data.length > 0 && (
-          <table className="w-full border-collapse" style={{ minWidth: table.getTotalSize() }}>
+          <table className="w-full border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()) }}>
             <thead>{table.getHeaderGroups().map(renderHead)}</thead>
             <tbody>{table.getRowModel().rows.map(renderRow)}</tbody>
           </table>
