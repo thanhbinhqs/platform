@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Permissions } from '@platform/platform-kernel';
@@ -12,7 +12,7 @@ export class DelegationsController {
   constructor(private readonly prisma: PrismaService) {}
   @Get()
   @ApiOperation({ summary: 'List delegations (given + received)' })
-  async findAll(@CurrentUser() u: AuthenticatedUser): Promise<any> {
+  async findAll(@CurrentUser() u: AuthenticatedUser, @Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
     const [given, received] = await Promise.all([
       this.prisma.client.delegation.findMany({ where: { delegatorId: u.id }, include: { delegate: { select: { id: true, username: true, displayName: true } } }, orderBy: { createdAt: 'desc' } } as any),
       this.prisma.client.delegation.findMany({ where: { delegateId: u.id }, include: { delegator: { select: { id: true, username: true, displayName: true } } }, orderBy: { createdAt: 'desc' } } as any),

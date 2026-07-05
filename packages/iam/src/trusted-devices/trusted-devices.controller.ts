@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@platform/platform-kernel';
@@ -14,7 +14,7 @@ export class TrustedDevicesController {
 
   @Get()
   @ApiOperation({ summary: 'List trusted devices' })
-  async findAll(@CurrentUser() u: AuthenticatedUser): Promise<any> {
+  async findAll(@CurrentUser() u: AuthenticatedUser, @Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
     return this.prisma.client.trustedDevice.findMany({ where: { userId: u.id }, orderBy: { lastUsedAt: 'desc' } });
   }
 

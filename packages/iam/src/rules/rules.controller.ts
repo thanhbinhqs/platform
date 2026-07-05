@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
@@ -10,7 +10,9 @@ import { PrismaService } from '@platform/platform-core';
 export class RulesController {
   constructor(private readonly prisma: PrismaService) {}
   @Get() @ApiOperation({ summary: 'List rules' })
-  async findAll(): Promise<any> { return this.prisma.client.rule.findMany({ include: { _count: { select: { executions: true } } }, orderBy: { createdAt: 'desc' } } as any); }
+  async findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
+    const pg = Math.max(1, Number(page) || 1); const ps = Math.min(100, Math.max(1, Number(limit) || 20)); const sk = (pg - 1) * ps; const wh: any = {}; if (search) wh.OR = [{ name: { contains: search, mode: 'insensitive' } }]; const ob: any = sortField ? { [sortField]: (sortDir || 'asc') as any } : { createdAt: 'desc' }; const [data, total] = await Promise.all([this.prisma.client.rule.findMany({ where: wh, skip: sk, take: ps, orderBy: ob, include: { _count: { select: { executions: true } } } }), this.prisma.client.rule.count({ where: wh })]); return { data, total, page: pg, pageSize: ps, totalPages: Math.ceil(total / ps) };
+  }
   @Post() @Permissions('manage:settings')
   @ApiOperation({ summary: 'Create rule' })
   async create(@Body() b: any): Promise<any> {

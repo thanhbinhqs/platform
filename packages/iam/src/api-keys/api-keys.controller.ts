@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, UseGuards, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@platform/platform-kernel';
@@ -16,7 +16,7 @@ let keyCounter = 0;
 export class ApiKeysController {
   @Get()
   @ApiOperation({ summary: 'List API keys' })
-  async findAll(@CurrentUser() u: AuthenticatedUser): Promise<any> {
+  async findAll(@CurrentUser() u: AuthenticatedUser, @Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
     const keys = Array.from(keyStore.values())
       .filter(k => k.userId === u.id)
       .map(k => ({ id: k.id, name: k.name, key: `${k.key.slice(0, 8)}...${k.key.slice(-4)}`, createdAt: k.createdAt }));
