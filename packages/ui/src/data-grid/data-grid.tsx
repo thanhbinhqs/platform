@@ -121,7 +121,7 @@ function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
 
 export function DataGrid<TData extends { [key: string]: any } = Record<string, unknown>>({
   columns: cols, data, isLoading = false, error = null, onRetry,
-  title, searchPlaceholder = 'Search…', pageSize = 20,
+  title, pageSize = 20,
   pageSizeOptions: pso = [10, 20, 50, 100],
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
   enableColumnResize, enableExport = true, enableDensity = true,
