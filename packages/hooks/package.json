@@ -16,6 +16,7 @@
     "zustand": "^5.0.0"
   },
   "dependencies": {
+    "@casl/ability": "^7.0.0",
     "@platform/shared-types": "workspace:*"
   },
   "devDependencies": {

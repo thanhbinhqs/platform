@@ -2,6 +2,16 @@
 // @platform/shared-types — IAM Types
 // ═══════════════════════════════════════════════════════════════
 
+// ─── CASL Rule (matching @casl/ability RawRule) ──────────────
+export interface CaslRule {
+  action: string | string[];
+  subject: string | string[];
+  conditions?: Record<string, unknown>;
+  inverted?: boolean;
+  /** Optional reason, used for debugging */
+  reason?: string;
+}
+
 // ─── User ──────────────────────────────────────────────────
 export interface User {
   id: string;
@@ -13,6 +23,8 @@ export interface User {
   status: UserStatus;
   roles: Role[];
   permissions: string[];
+  /** CASL Ability rules (action + subject pairs for can() checks) */
+  rules: CaslRule[];
   directPermissions?: UserPermissionOverride[];
   isMfaEnabled: boolean;
   sessionId?: string;

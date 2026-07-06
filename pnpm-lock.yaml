@@ -432,7 +432,7 @@ importers:
       '@platform/platform-kernel':
         specifier: workspace:*
         version: link:../../packages/platform-kernel
-      '@platform/scheduler':
+      '@platform/scheduler-lib':
         specifier: workspace:*
         version: link:../../packages/scheduler
       '@platform/shared-types':
@@ -742,6 +742,9 @@ importers:
 
   packages/hooks:
     dependencies:
+      '@casl/ability':
+        specifier: ^7.0.0
+        version: 7.0.0
       '@platform/shared-types':
         specifier: workspace:*
         version: link:../shared-types

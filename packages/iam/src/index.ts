@@ -23,6 +23,7 @@ export { RolesService } from './roles/roles.service';
 export { AuthorizationModule } from './authorization/authorization.module';
 export { PoliciesGuard, CHECK_POLICIES_KEY } from './authorization/policies.guard';
 export { AbilityFactory } from './authorization/ability.factory';
+export type { CaslRule, AppAbility } from './authorization/ability.factory';
 
 // ─── Session ───────────────────────────────────────────────
 export { SessionModule } from './session/session.module';

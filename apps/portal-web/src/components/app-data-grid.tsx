@@ -164,11 +164,10 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   };
 
   // ── Permission checking ──
-  const userPermissions = useAuthStore((s) => s.user?.permissions);
+  const userRules = useAuthStore((s) => s.user?.rules);
   const hasPerm = (perm?: string | string[]) => {
     if (!perm) return true; // No permission required
-    if (!userPermissions) return false;
-    return hasPermission(userPermissions, perm);
+    return hasPermission(userRules, perm);
   };
   const canExport = enableExport && hasPerm(exportPermission);
   const canShowColVis = enableColumnVisibility && hasPerm(columnVisibilityPermission);
@@ -177,21 +176,21 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   // Filter actions / fields by permission
   const visibleFilterFields = useMemo(
     () => filterFields.filter(f => hasPerm(f.permission)),
-    [filterFields, userPermissions],
+    [filterFields, userRules],
   );
   const visibleBulkActions = useMemo(
     () => bulkActions.filter(a => hasPerm(a.permission)),
-    [bulkActions, userPermissions],
+    [bulkActions, userRules],
   );
   const visibleTableActions = useMemo(
     () => tableActions.filter(a => hasPerm(a.permission)),
-    [tableActions, userPermissions],
+    [tableActions, userRules],
   );
 
   // Filter context menu items by permission
   const visibleContextMenuItems = useMemo(
     () => filterCtxItems(contextMenuItems, hasPerm),
-    [contextMenuItems, userPermissions],
+    [contextMenuItems, userRules],
   );
 
   // ── Context menu action handler ──

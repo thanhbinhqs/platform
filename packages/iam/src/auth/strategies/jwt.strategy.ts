@@ -37,9 +37,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       tenantId: payload.tenantId,
       username: payload.username,
       email: payload.email,
-      displayName: null, // Set from DB if needed
+      displayName: null,
       roles: payload.roles.map((name) => ({ id: name, name })),
       permissions: payload.permissions,
+      rules: [], // rules come from /auth/me, not from JWT (too large)
       isMfaEnabled: false,
       sessionId: payload.sessionId,
     };

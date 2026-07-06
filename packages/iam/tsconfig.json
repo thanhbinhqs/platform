@@ -2,7 +2,9 @@
   "extends": "@platform/config-typescript/backend.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "module": "node16",
+    "moduleResolution": "node16"
   },
   "include": ["src/**/*"]
 }

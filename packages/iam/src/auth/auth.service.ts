@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '@platform/platform-core';
 import { EmailService } from '@platform/platform-kernel';
 import { randomBytes } from 'crypto';
+import { AbilityFactory } from '../authorization/ability.factory';
 import type { AuthenticatedUser } from '../common';
 import type { JwtPayload } from './strategies/jwt.strategy';
 import {
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly abilityFactory: AbilityFactory,
   ) {}
 
   async validateUser(email: string, password: string): Promise<AuthenticatedUser> {
@@ -130,6 +132,20 @@ export class AuthService {
       ...new Set([...rolePermissions, ...allowPerms]),
     ].filter((p) => !denyPerms.has(p));
 
+    // Build CASL rules from the merged permission pairs
+    const allowedPairs: { action: string; resource: string }[] = [];
+    const deniedPairs: { action: string; resource: string }[] = [];
+    for (const p of mergedPermissions) {
+      const [action, resource] = p.split(':') as [string, string];
+      allowedPairs.push({ action, resource });
+    }
+    for (const up of userPerms) {
+      if (up.effect === 'DENY') {
+        deniedPairs.push({ action: up.permission.action, resource: up.permission.resource });
+      }
+    }
+    const rules = this.abilityFactory.toRawRules(allowedPairs, deniedPairs);
+
     return {
       id: user.id,
       username: user.username,
@@ -137,6 +153,7 @@ export class AuthService {
       displayName: user.username,
       roles,
       permissions: mergedPermissions,
+      rules,
       tenantId: user.tenantId ?? null,
       isMfaEnabled: false,
       sessionId: uuidv4(),
@@ -164,7 +181,93 @@ export class AuthService {
     });
 
     this.logger.log(`Password changed for user ${userId}`);
-    return { success: true, message: 'Password updated successfully' };
+    return { success: true, message: 'Password changed successfully' };
+  }
+
+  /**
+   * Fetch full user profile with CASL rules (used by /auth/me)
+   */
+  async getUserProfile(userId: string): Promise<AuthenticatedUser | null> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        status: true,
+        tenantId: true,
+        roles: {
+          select: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                permissions: {
+                  select: {
+                    permission: {
+                      select: { action: true, resource: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!user) return null;
+
+    const roles = user.roles.map((ur) => ({
+      id: ur.role.id,
+      name: ur.role.name,
+    }));
+
+    const rolePermissions = user.roles.flatMap((ur) =>
+      ur.role.permissions.map((rp) => `${rp.permission.action}:${rp.permission.resource}`),
+    );
+
+    const userPerms = await this.prisma.client.userPermission.findMany({
+      where: { userId: user.id },
+      include: { permission: { select: { action: true, resource: true } } },
+    });
+
+    const allowPerms = new Set<string>();
+    const denyPerms = new Set<string>();
+    for (const up of userPerms) {
+      const key = `${up.permission.action}:${up.permission.resource}`;
+      if (up.effect === 'DENY') denyPerms.add(key);
+      else allowPerms.add(key);
+    }
+
+    const mergedPermissions = [
+      ...new Set([...rolePermissions, ...allowPerms]),
+    ].filter((p) => !denyPerms.has(p));
+
+    const allowedPairs: { action: string; resource: string }[] = [];
+    const deniedPairs: { action: string; resource: string }[] = [];
+    for (const p of mergedPermissions) {
+      const [action, resource] = p.split(':') as [string, string];
+      allowedPairs.push({ action, resource });
+    }
+    for (const up of userPerms) {
+      if (up.effect === 'DENY') {
+        deniedPairs.push({ action: up.permission.action, resource: up.permission.resource });
+      }
+    }
+    const rules = this.abilityFactory.toRawRules(allowedPairs, deniedPairs);
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.username,
+      roles,
+      permissions: mergedPermissions,
+      rules,
+      tenantId: user.tenantId ?? null,
+      isMfaEnabled: false,
+      sessionId: uuidv4(),
+    };
   }
 
   private async logLoginHistory(userId: string, status: string) {

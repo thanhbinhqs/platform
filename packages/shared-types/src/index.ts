@@ -13,4 +13,5 @@ export type {
   Session,
   MfaSetupResponse,
   MfaEnableRequest,
+  CaslRule,
 } from './iam.types';

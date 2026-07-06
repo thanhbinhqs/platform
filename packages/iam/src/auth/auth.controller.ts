@@ -53,6 +53,7 @@ export class AuthController {
       displayName: user.displayName ?? user.username,
       roles: user.roles,
       permissions: [],
+      rules: [],
       tenantId: null,
       isMfaEnabled: false,
       sessionId: crypto.randomUUID(),
@@ -125,6 +126,8 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get current authenticated user profile' })
   async me(@CurrentUser() user: AuthenticatedUser) {
-    return user;
+    // Fetch full profile with CASL rules from DB
+    const full = await this.authService.getUserProfile(user.id);
+    return full ?? user;
   }
 }
