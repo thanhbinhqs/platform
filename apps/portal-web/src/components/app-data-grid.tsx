@@ -1,8 +1,8 @@
 // AppDataGrid — Enhanced enterprise data grid with full filter sidebar + actions + pagination
 
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useEffect, type ReactNode } from 'react';
 import { DataGrid, type DataGridColumn } from '@platform/ui';
-import { Search, Download, Plus, Upload, RefreshCw, Filter, X } from 'lucide-react';
+import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -45,6 +45,7 @@ export interface AppDataGridProps<TData> {
   enableSorting?: boolean;
   enableExport?: boolean;
   enableColumnResize?: boolean;
+  enableColumnVisibility?: boolean;
   enableDensity?: boolean;
   pageSize?: number;
   onRowClick?: (row: TData) => void;
@@ -70,7 +71,7 @@ export interface AppDataGridProps<TData> {
 
 export function AppDataGrid<TData extends { id?: string | number }>({
   columns, data, title, filterFields = [], bulkActions = [], tableActions = [],
-  enableSelection, enableRowNumber, enableSorting, enableExport, enableColumnResize, enableDensity,
+  enableSelection, enableRowNumber, enableSorting, enableExport, enableColumnResize, enableColumnVisibility, enableDensity,
   pageSize = 20, onRowClick, onSelectionChange,
   emptyMessage, loading, onSearch, serverSide,
 }: AppDataGridProps<TData>) {
@@ -78,9 +79,31 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [colVis, setColVis] = useState<Record<string, boolean>>({});
+  const [denKey, setDenKey] = useState('standard');
+
+  const DENSITY_MAP: Record<string, { label: string }> = {
+    compact: { label: 'Compact' },
+    standard: { label: 'Standard' },
+    comfortable: { label: 'Comfortable' },
+  };
 
   // ── Bulk action dropdown ──
   const [showBulk, setShowBulk] = useState(false);
+  const [showColMenu, setShowColMenu] = useState(false);
+  const [showDenMenu, setShowDenMenu] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
+  const denMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close menus on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false);
+      if (denMenuRef.current && !denMenuRef.current.contains(e.target as Node)) setShowDenMenu(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const handleSelectionChange = (rows: TData[]) => {
     setSelectedIds(rows.map((r: any) => String(r.id)));
@@ -118,6 +141,15 @@ export function AppDataGrid<TData extends { id?: string | number }>({
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-1"><Filter size={14} /> Filters</h3>
           <button className="rounded p-1 hover:bg-accent" onClick={() => setShowFilter(false)}><X size={14} /></button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input type="text" placeholder="Search all…"
+            className="h-8 w-full rounded-md border bg-background pl-8 pr-8 text-sm outline-none focus:border-primary"
+            value={searchQuery} onChange={e => handleSearch(e.target.value)} />
+          {searchQuery && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => handleSearch('')}><X size={14} /></button>}
         </div>
 
         {/* Filter field selector */}
@@ -237,8 +269,8 @@ export function AppDataGrid<TData extends { id?: string | number }>({
             )}
           </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1">
+          {/* Right: Actions + Settings */}
+          <div className="flex items-center gap-1 ml-auto">
             <button className={`inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent' : ''}`}
               onClick={() => setShowFilter(!showFilter)}><Filter size={14} /> Filters</button>
             <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
@@ -248,8 +280,46 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                 {a.icon} {a.label}
               </button>
             ))}
+            <span className="mx-1 h-5 w-px bg-border" /> {/* Separator */}
             {enableExport && (
               <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
+            )}
+            {enableColumnVisibility && (
+              <div className="relative" ref={colMenuRef}>
+                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                  onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
+                {showColMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border bg-card shadow-xl">
+                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">Column Visibility</div>
+                    {columns.map((c, i) => {
+                      const id = (c as any).accessorKey || (c as any).id || String(i);
+                      const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
+                      if (id.startsWith('__')) return null;
+                      const vis = colVis[id] !== false;
+                      return (
+                        <button key={id} className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                          onClick={() => setColVis({ ...colVis, [id]: !vis })}>
+                          {vis ? <Eye size={14} /> : <EyeOff size={14} />} {hdr}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            {enableDensity && (
+              <div className="relative" ref={denMenuRef}>
+                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                  onClick={() => setShowDenMenu(!showDenMenu)}><SlidersHorizontal size={14} /> {DENSITY_MAP[denKey]?.label ?? 'Density'}</button>
+                {showDenMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border bg-card shadow-xl">
+                    {Object.entries(DENSITY_MAP).map(([k, d]) => (
+                      <button key={k} className={`flex w-full items-center px-3 py-1.5 text-sm hover:bg-accent ${denKey === k ? 'font-semibold text-primary' : ''}`}
+                        onClick={() => { setDenKey(k); setShowDenMenu(false); }}>{d.label}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -264,7 +334,12 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           enableSorting={enableSorting}
           enableColumnResize={enableColumnResize}
           enableExport={false}
-          enableDensity={enableDensity}
+          enableColumnVisibility={false}
+          enableDensity={false}
+          density={denKey as 'compact' | 'standard' | 'comfortable'}
+          onDensityChange={(key: 'compact' | 'standard' | 'comfortable') => setDenKey(key)}
+          columnVisibility={colVis}
+          onColumnVisibilityChange={(v: any) => setColVis(v)}
           pageSize={pageSize}
           serverSide={serverSide as any}
           onRowClick={onRowClick}

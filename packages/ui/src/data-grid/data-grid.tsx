@@ -18,11 +18,11 @@ import {
 } from '@tanstack/react-table';
 import {
   useState, useMemo, useCallback, useRef, useEffect,
-  type ReactNode, type KeyboardEvent, type ChangeEvent,
+  type ReactNode, type KeyboardEvent,
 } from 'react';
 import {
   ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, Search, X, Download, Columns,
+  ChevronsLeft, ChevronsRight, Download, Columns,
   SlidersHorizontal, Eye, EyeOff,
 } from 'lucide-react';
 
@@ -55,6 +55,12 @@ export interface DataGridProps<TData> {
   enableColumnResize?: boolean;
   enableExport?: boolean;
   enableDensity?: boolean;
+  /** External density control — when provided, DataGrid defers to this value */
+  density?: 'compact' | 'standard' | 'comfortable';
+  onDensityChange?: (key: 'compact' | 'standard' | 'comfortable') => void;
+  /** External column visibility control — when provided, DataGrid defers to this value */
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
   onRowClick?: (row: TData) => void;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
@@ -119,15 +125,21 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   pageSizeOptions: pso = [10, 20, 50, 100],
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
   enableColumnResize, enableExport = true, enableDensity = true,
+  density: extDenKey, onDensityChange: extOnDenChange,
+  columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   onRowClick, onSelectionChange, bulkActions, actionButtons,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [colFilters, setColFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [colVis, setColVis] = useState<VisibilityState>({});
+  const [colVisInternal, setColVisInternal] = useState<VisibilityState>({});
+  const colVis = extColVis ?? colVisInternal;
+  const setColVis = (extOnColVisChange ?? setColVisInternal) as (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
   const [rowSel, setRowSel] = useState<RowSelectionState>({});
-  const [denKey, setDenKey] = useState('standard');
+  const [denKeyInternal, setDenKeyInternal] = useState('standard');
+  const denKey: string = extDenKey ?? denKeyInternal;
+  const setDenKey = extOnDenChange ?? setDenKeyInternal;
   const [showColMenu, setShowColMenu] = useState(false);
   const [showDenMenu, setShowDenMenu] = useState(false);
 
@@ -221,17 +233,10 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           <div className="flex items-center gap-3">
             {title && <h2 className="text-lg font-bold tracking-tight">{title}</h2>}
             {hasSel && <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selRows.length} selected</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input data-dg-search type="text" placeholder={searchPlaceholder}
-                className="h-8 w-44 rounded-md border bg-background pl-8 pr-8 text-sm outline-none focus:border-primary"
-                value={globalFilter} onChange={(e: ChangeEvent<HTMLInputElement>) => setGlobalFilter(e.target.value)} />
-              {globalFilter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setGlobalFilter('')}><X size={14} /></button>}
-            </div>
             {hasSel && bulkActions}
             {actionButtons}
+          </div>
+          <div className="flex items-center gap-2">
             {enableExport && (
               <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
                 onClick={() => exportCsv(table.getFilteredRowModel().rows.map(r => r.original), cols, title ?? 'export')}>
@@ -270,7 +275,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                   <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border bg-card shadow-xl" onMouseLeave={() => setShowDenMenu(false)}>
                     {Object.entries(DENSITY_MAP).map(([k, d]) => (
                       <button key={k} className={`flex w-full items-center px-3 py-1.5 text-sm hover:bg-accent ${denKey === k ? 'font-semibold text-primary' : ''}`}
-                        onClick={() => { setDenKey(k); setShowDenMenu(false); }}>{d.label}</button>
+                        onClick={() => { setDenKey(k as 'compact' | 'standard' | 'comfortable'); setShowDenMenu(false); }}>{d.label}</button>
                     ))}
                   </div>
                 )}
