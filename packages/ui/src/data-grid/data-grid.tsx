@@ -62,6 +62,8 @@ export interface DataGridProps<TData> {
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
   onRowClick?: (row: TData) => void;
+  /** Right-click on a row — position is clientX/clientY for context menu placement */
+  onRowContextMenu?: (row: TData, position: { x: number; y: number }) => void;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -127,7 +129,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   enableColumnResize, enableExport = true, enableDensity = true,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
-  onRowClick, onSelectionChange, bulkActions, actionButtons,
+  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -214,7 +216,9 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
   function renderRow(row: Row<TData>, rowIdx: number) {
     return (
-      <tr key={row.id} className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-accent/50'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`} onClick={() => onRowClick?.(row.original)}>
+      <tr key={row.id} className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-accent/50'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
+        onClick={() => onRowClick?.(row.original)}
+        onContextMenu={(e) => { e.preventDefault(); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
         {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 bg-card w-12 text-center text-muted-foreground text-xs ${row.getIsSelected() ? 'bg-primary/5' : ''}`}>{rowIdx + 1 + pag.pageIndex * pag.pageSize}</td>}
         {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : 'bg-card'} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {

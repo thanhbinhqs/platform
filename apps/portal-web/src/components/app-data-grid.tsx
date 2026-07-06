@@ -1,8 +1,10 @@
 // AppDataGrid — Enhanced enterprise data grid with full filter sidebar + actions + pagination
 
-import { useState, useMemo, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { DataGrid, type DataGridColumn } from '@platform/ui';
-import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff } from 'lucide-react';
+import { usePermission, hasPermission } from '@platform/hooks';
+import { useAuthStore } from '@platform/hooks';
+import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pencil, Trash2, ExternalLink } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -12,6 +14,8 @@ interface FilterField {
   type: 'text' | 'select' | 'multi-select' | 'checkbox' | 'date-range' | 'number-range';
   options?: { label: string; value: string }[];
   placeholder?: string;
+  /** Required permission to see this filter field */
+  permission?: string | string[];
 }
 
 interface ActiveFilter {
@@ -24,6 +28,8 @@ interface BulkAction {
   label: string;
   icon?: ReactNode;
   onClick: (selectedIds: string[]) => void;
+  /** Required permission — action hidden if user lacks it */
+  permission?: string | string[];
 }
 
 interface TableAction {
@@ -31,6 +37,32 @@ interface TableAction {
   icon?: ReactNode;
   onClick: () => void;
   variant?: 'primary' | 'default';
+  /** Required permission — action hidden if user lacks it */
+  permission?: string | string[];
+}
+
+/** Context menu item definition */
+interface ContextMenuItem {
+  label: string;
+  icon?: ReactNode;
+  action: string;
+  /** Required permission — item hidden if user lacks it */
+  permission?: string | string[];
+  /** Disable condition (checked per row) */
+  disabled?: boolean | ((row: Record<string, unknown>) => boolean);
+  divider?: boolean;
+  children?: ContextMenuItem[];
+}
+
+/** Recursively filter context menu items by permission */
+function filterCtxItems(items: ContextMenuItem[], hasPerm: (p?: string | string[]) => boolean): ContextMenuItem[] {
+  return items.reduce<ContextMenuItem[]>((acc, item) => {
+    if (item.permission && !hasPerm(item.permission)) return acc;
+    const cloned: ContextMenuItem = { ...item };
+    if (item.children) cloned.children = filterCtxItems(item.children, hasPerm);
+    acc.push(cloned);
+    return acc;
+  }, []);
 }
 
 export interface AppDataGridProps<TData> {
@@ -65,6 +97,16 @@ export interface AppDataGridProps<TData> {
     onColumnFiltersChange?: (f: any[]) => void;
     onGlobalFilterChange?: (v: string) => void;
   };
+  /** Context menu items shown on right-click */
+  contextMenuItems?: ContextMenuItem[];
+  /** Called when a context menu item is clicked */
+  onContextMenuAction?: (action: string, row: TData) => void;
+  /** Permission required to see Export button (e.g. 'export:rules') */
+  exportPermission?: string | string[];
+  /** Permission required to see Columns dropdown (e.g. 'columns:rules') */
+  columnVisibilityPermission?: string | string[];
+  /** Permission required to see Density dropdown */
+  densityPermission?: string | string[];
 }
 
 // ─── Component ───────────────────────────────────────────────────
@@ -74,6 +116,8 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   enableSelection, enableRowNumber, enableSorting, enableExport, enableColumnResize, enableColumnVisibility, enableDensity,
   pageSize = 20, onRowClick, onSelectionChange,
   emptyMessage, loading, onSearch, serverSide,
+  contextMenuItems = [], exportPermission, columnVisibilityPermission, densityPermission,
+  onContextMenuAction,
 }: AppDataGridProps<TData>) {
   const [showFilter, setShowFilter] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,6 +125,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [colVis, setColVis] = useState<Record<string, boolean>>({});
   const [denKey, setDenKey] = useState('standard');
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; row: TData } | null>(null);
 
   const DENSITY_MAP: Record<string, { label: string }> = {
     compact: { label: 'Compact' },
@@ -96,10 +141,12 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   const denMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus on click outside
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false);
       if (denMenuRef.current && !denMenuRef.current.contains(e.target as Node)) setShowDenMenu(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setCtxMenu(null);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -115,6 +162,43 @@ export function AppDataGrid<TData extends { id?: string | number }>({
     onSearch?.(val);
     if (serverSide?.onGlobalFilterChange) serverSide.onGlobalFilterChange(val);
   };
+
+  // ── Permission checking ──
+  const userPermissions = useAuthStore((s) => s.user?.permissions);
+  const hasPerm = (perm?: string | string[]) => {
+    if (!perm) return true; // No permission required
+    if (!userPermissions) return false;
+    return hasPermission(userPermissions, perm);
+  };
+  const canExport = enableExport && hasPerm(exportPermission);
+  const canShowColVis = enableColumnVisibility && hasPerm(columnVisibilityPermission);
+  const canShowDensity = enableDensity && hasPerm(densityPermission);
+
+  // Filter actions / fields by permission
+  const visibleFilterFields = useMemo(
+    () => filterFields.filter(f => hasPerm(f.permission)),
+    [filterFields, userPermissions],
+  );
+  const visibleBulkActions = useMemo(
+    () => bulkActions.filter(a => hasPerm(a.permission)),
+    [bulkActions, userPermissions],
+  );
+  const visibleTableActions = useMemo(
+    () => tableActions.filter(a => hasPerm(a.permission)),
+    [tableActions, userPermissions],
+  );
+
+  // Filter context menu items by permission
+  const visibleContextMenuItems = useMemo(
+    () => filterCtxItems(contextMenuItems, hasPerm),
+    [contextMenuItems, userPermissions],
+  );
+
+  // ── Context menu action handler ──
+  const handleCtxAction = useCallback((action: string, row: TData) => {
+    onContextMenuAction?.(action, row);
+    setCtxMenu(null);
+  }, [contextMenuItems, onContextMenuAction]);
 
   // ── Add / Remove filters ──
   const addFilter = (field: FilterField) => {
@@ -156,7 +240,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Add filter</p>
           <div className="flex flex-wrap gap-1">
-            {filterFields.filter(f => !activeFilters.find(af => af.field === f.id)).map(f => (
+            {visibleFilterFields.filter(f => !activeFilters.find(af => af.field === f.id)).map(f => (
               <button key={f.id} className="rounded border px-2 py-0.5 text-xs hover:bg-accent" onClick={() => addFilter(f)}>
                 {f.label}
               </button>
@@ -166,7 +250,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
 
         {/* Active filters */}
         {activeFilters.map((af, idx) => {
-          const fieldDef = filterFields.find(f => f.id === af.field);
+          const fieldDef = visibleFilterFields.find(f => f.id === af.field);
           if (!fieldDef) return null;
           return (
             <div key={idx} className="rounded-lg border p-2 space-y-1.5">
@@ -249,7 +333,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           <div className="flex items-center gap-3">
             {title && <h2 className="text-lg font-bold tracking-tight">{title}</h2>}
             {/* Bulk actions dropdown */}
-            {selectedIds.length > 0 && bulkActions.length > 0 && (
+            {selectedIds.length > 0 && visibleBulkActions.length > 0 && (
               <div className="relative">
                 <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowBulk(!showBulk)}>
@@ -257,7 +341,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                 </button>
                 {showBulk && (
                   <div className="absolute left-0 top-full mt-1 min-w-[160px] rounded-lg border bg-card py-1 shadow-xl z-50">
-                    {bulkActions.map((a, i) => (
+                    {visibleBulkActions.map((a, i) => (
                       <button key={i} className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
                         onClick={() => { a.onClick(selectedIds); setShowBulk(false); }}>
                         {a.icon} {a.label}
@@ -274,17 +358,17 @@ export function AppDataGrid<TData extends { id?: string | number }>({
             <button className={`inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent' : ''}`}
               onClick={() => setShowFilter(!showFilter)}><Filter size={14} /> Filters</button>
             <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
-            {tableActions.map((a, i) => (
+            {visibleTableActions.map((a, i) => (
               <button key={i} className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-xs font-medium border bg-background hover:bg-accent ${a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
                 onClick={a.onClick}>
                 {a.icon} {a.label}
               </button>
             ))}
             <span className="mx-1 h-5 w-px bg-border" /> {/* Separator */}
-            {enableExport && (
+            {canExport && (
               <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
             )}
-            {enableColumnVisibility && (
+            {canShowColVis && (
               <div className="relative" ref={colMenuRef}>
                 <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
@@ -307,7 +391,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                 )}
               </div>
             )}
-            {enableDensity && (
+            {canShowDensity && (
               <div className="relative" ref={denMenuRef}>
                 <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowDenMenu(!showDenMenu)}><SlidersHorizontal size={14} /> {DENSITY_MAP[denKey]?.label ?? 'Density'}</button>
@@ -342,13 +426,44 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           onColumnVisibilityChange={(v: any) => setColVis(v)}
           pageSize={pageSize}
           serverSide={serverSide as any}
-          onRowClick={onRowClick}
+          onRowClick={(row) => {
+            // If we have context menu items, set row for menu
+            if (contextMenuItems.length > 0) {
+              // Don't navigate, let context menu handle it
+            }
+            onRowClick?.(row);
+          }}
+          onRowContextMenu={(row, pos) => setCtxMenu({ ...pos, row })}
           onSelectionChange={handleSelectionChange}
           emptyMessage={emptyMessage}
           isLoading={loading}
           searchPlaceholder={undefined}
           classNames={{ wrapper: 'flex-1 flex flex-col min-h-0' }}
         />
+
+        {/* Context Menu */}
+        {ctxMenu && visibleContextMenuItems.length > 0 && (
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 9999 }}
+            className="min-w-[180px] rounded-lg border bg-card py-1 shadow-xl"
+            role="menu">
+            {visibleContextMenuItems.map((item, i) => (
+              <div key={i}>
+                {item.divider && <div className="my-1 border-t" />}
+                <button
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+                  onClick={() => {
+                    handleCtxAction(item.action, ctxMenu.row);
+                  }}>
+                  {item.icon && <span className="text-base">{item.icon}</span>}
+                  {item.label}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
