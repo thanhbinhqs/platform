@@ -23,8 +23,9 @@ import {
 import {
   ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight, Download, Columns,
-  SlidersHorizontal, Eye, EyeOff,
+  SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
+import ExcelJS from 'exceljs';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ function fmtVal(v: unknown): string {
  * Format a value according to ColumnFormat metadata.
  * Falls back to fmtVal() when no format is provided.
  */
-function getFormattedValue(value: unknown, format?: ColumnFormat): string {
+export function getFormattedValue(value: unknown, format?: ColumnFormat): string {
   if (value === null || value === undefined) return '—';
   if (!format) {
     if (typeof value === 'object') return JSON.stringify(value);
@@ -210,7 +211,7 @@ function getFormattedValue(value: unknown, format?: ColumnFormat): string {
   }
 }
 
-function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
+export function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
   const h = cols.filter(c => (c as any).accessorKey || (c as any).id)
     .map(c => typeof (c as any).header === 'string' ? (c as any).header : (c as any).id || '');
   const d = rows.map(r =>
@@ -228,6 +229,105 @@ function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
   const csv = [h.join(','), ...d].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.csv`; a.click();
+}
+
+/** Infer Excel number format from ColumnFormat.type */
+function inferNumberFmt(fmt: ColumnFormat): string | undefined {
+  switch (fmt.type) {
+    case 'currency':       return `#,##0.00`;
+    case 'percentage':     return `0%`;
+    case 'number':         return `#,##0.${Array(fmt.decimalPlaces ?? 2).fill('0').join('')}`;
+    case 'date':           return `DD/MM/YYYY`;
+    case 'datetime':       return `DD/MM/YYYY HH:mm`;
+    default:               return undefined;
+  }
+}
+
+/**
+ * Export rows to a real .xlsx file using exceljs.
+ * Respects column.meta.format (value formatting) and
+ * column.meta.excel (numberFormat, width, alignment, wrapText).
+ */
+export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Portal';
+  const ws = workbook.addWorksheet(name.slice(0, 31));
+
+  const visibleCols = cols.filter(c => (c as any).accessorKey);
+
+  // ── Column definitions ──
+  ws.columns = visibleCols.map((c) => {
+    const meta = (c as any).meta as ColumnMeta | undefined;
+    return {
+      header: typeof (c as any).header === 'string' ? (c as any).header : (c as any).id || '',
+      key: (c as any).accessorKey,
+      width: meta?.excel?.width,
+    };
+  });
+
+  // ── Style header row ──
+  const hdrRow = ws.getRow(1);
+  hdrRow.font = { bold: true, size: 11 };
+  hdrRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+  hdrRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+  // ── Data rows ──
+  for (const row of rows) {
+    const rowData: Record<string, unknown> = {};
+    for (const c of visibleCols) {
+      const accessorKey = (c as any).accessorKey;
+      const raw = (row as any)[accessorKey];
+      const meta = (c as any).meta as ColumnMeta | undefined;
+      const fmt = meta?.format;
+
+      if (fmt?.type === 'number' || fmt?.type === 'currency' || fmt?.type === 'percentage') {
+        const numeric = Number(raw);
+        rowData[accessorKey] = isNaN(numeric) ? raw : numeric;
+      } else if (fmt?.type === 'date' || fmt?.type === 'datetime') {
+        const d = new Date(raw);
+        rowData[accessorKey] = isNaN(d.getTime()) ? raw : d;
+      } else if (fmt?.type === 'enum') {
+        rowData[accessorKey] = fmt.enumValues?.[String(raw)] ?? raw;
+      } else if (fmt?.type === 'boolean') {
+        rowData[accessorKey] = raw ? 'Yes' : 'No';
+      } else {
+        rowData[accessorKey] = raw;
+      }
+    }
+    ws.addRow(rowData);
+  }
+
+  // ── Column-level formatting (number format, alignment) ──
+  visibleCols.forEach((c, colIdx) => {
+    const meta = (c as any).meta as ColumnMeta | undefined;
+    const colNum = colIdx + 1;
+    const excelProps = meta?.excel;
+    const colFmt = meta?.format;
+
+    // Number format: explicit excel.numberFormat > inferred from format.type
+    const numFmt = excelProps?.numberFormat ?? (colFmt ? inferNumberFmt(colFmt) : undefined);
+
+    if (numFmt || excelProps?.alignment) {
+      for (let rowIdx = 2; rowIdx <= rows.length + 1; rowIdx++) {
+        const cell = ws.getCell(rowIdx, colNum);
+        if (numFmt) cell.numFmt = numFmt;
+        if (excelProps?.alignment) {
+          cell.alignment = { horizontal: excelProps.alignment as any, vertical: 'middle' };
+        }
+        if (excelProps?.wrapText) {
+          cell.alignment = { ...(cell.alignment || {}), wrapText: true };
+        }
+      }
+    }
+  });
+
+  // ── Generate buffer & download ──
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name}.xlsx`;
+  a.click();
 }
 
 // ─── Main ──────────────────────────────────────────────────────────
@@ -255,6 +355,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const setDenKey = extOnDenChange ?? setDenKeyInternal;
   const [showColMenu, setShowColMenu] = useState(false);
   const [showDenMenu, setShowDenMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const pag = useMemo<PaginationState>(() => serverSide ? serverSide.pagination : { pageIndex: 0, pageSize }, [serverSide, pageSize]);
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
@@ -353,10 +454,31 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           </div>
           <div className="flex items-center gap-2">
             {enableExport && (
-              <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
-                onClick={() => exportCsv(table.getFilteredRowModel().rows.map(r => r.original), cols, title ?? 'export')}>
-                <Download size={14} /> Export
-              </button>
+              <div className="relative">
+                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                  onClick={() => setShowExportMenu(!showExportMenu)}>
+                  <Download size={14} /> Export <ChevronDown size={12} />
+                </button>
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border bg-card shadow-xl"
+                    onMouseLeave={() => setShowExportMenu(false)}>
+                    <button className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        exportCsv(table.getFilteredRowModel().rows.map(r => r.original), cols, title ?? 'export');
+                        setShowExportMenu(false);
+                      }}>
+                      <Download size={14} /> Export CSV
+                    </button>
+                    <button className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                      onClick={async () => {
+                        await exportExcel(table.getFilteredRowModel().rows.map(r => r.original), cols, title ?? 'export');
+                        setShowExportMenu(false);
+                      }}>
+                      <FileSpreadsheet size={14} /> Export XLSX
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {enableColumnVisibility && (
               <div className="relative">
