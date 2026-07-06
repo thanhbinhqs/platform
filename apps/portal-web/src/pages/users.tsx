@@ -25,7 +25,7 @@ export function UsersPage() {
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <h1 className="text-2xl font-bold">Users</h1>
-      <DataGrid columns={columns} data={data || []} title="Users" enableSelection enableSorting enableColumnVisibility enableExport enableDensity onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found." />
+      <DataGrid columns={columns} data={data || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found." />
     </div>
   );
 }

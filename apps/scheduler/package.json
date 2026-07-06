@@ -19,7 +19,7 @@
     "@platform/platform-kernel": "workspace:*",
     "@platform/platform-core": "workspace:*",
     "@platform/iam": "workspace:*",
-    "@platform/scheduler": "workspace:*",
+    "@platform/scheduler-lib": "workspace:*",
     "@platform/notification": "workspace:*",
     "@platform/logging": "workspace:*",
     "@platform/monitoring": "workspace:*",

@@ -75,6 +75,7 @@ export function DataGridDemoPage() {
         data={mockData}
         title="Jig Inventory"
         enableSelection
+        enableRowNumber
         enableSorting
         enableColumnVisibility
         enableExport

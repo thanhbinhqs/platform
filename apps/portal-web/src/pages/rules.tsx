@@ -71,6 +71,7 @@ export function RulesPage() {
         bulkActions={bulkActions}
         tableActions={tableActions}
         enableSelection
+        enableRowNumber
         enableSorting
         enableExport
         enableColumnResize

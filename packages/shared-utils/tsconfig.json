@@ -2,7 +2,9 @@
   "extends": "@platform/config-typescript/frontend.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "types": []
   },
   "include": ["src/**/*"]
 }

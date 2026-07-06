@@ -49,6 +49,7 @@ export interface DataGridProps<TData> {
   pageSize?: number;
   pageSizeOptions?: number[];
   enableSelection?: boolean;
+  enableRowNumber?: boolean;
   enableSorting?: boolean;
   enableColumnVisibility?: boolean;
   enableColumnResize?: boolean;
@@ -116,7 +117,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   columns: cols, data, isLoading = false, error = null, onRetry,
   title, searchPlaceholder = 'Search…', pageSize = 20,
   pageSizeOptions: pso = [10, 20, 50, 100],
-  enableSelection, enableSorting = true, enableColumnVisibility = true,
+  enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
   enableColumnResize, enableExport = true, enableDensity = true,
   onRowClick, onSelectionChange, bulkActions, actionButtons,
   emptyMessage = 'No data found.', serverSide, classNames = {},
@@ -179,7 +180,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   function renderHead(hg: HeaderGroup<TData>) {
     return (
       <tr key={hg.id} className="border-b bg-muted/50">
-        {enableSelection && <th className={`${den.cell} ${den.font} w-10 text-center`}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky left-0 z-20 bg-muted/50 w-12 text-center text-muted-foreground`}>#</th>}
+        {enableSelection && <th className={`${den.cell} ${den.font} sticky left-0 z-20 bg-muted/50 w-10 text-center ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -198,10 +200,11 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     );
   }
 
-  function renderRow(row: Row<TData>) {
+  function renderRow(row: Row<TData>, rowIdx: number) {
     return (
       <tr key={row.id} className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-accent/50'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`} onClick={() => onRowClick?.(row.original)}>
-        {enableSelection && <td className={`${den.cell} w-10 text-center`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 bg-card w-12 text-center text-muted-foreground text-xs ${row.getIsSelected() ? 'bg-primary/5' : ''}`}>{rowIdx + 1 + pag.pageIndex * pag.pageSize}</td>}
+        {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : 'bg-card'} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''}`}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
@@ -246,6 +249,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     {cols.map((c, i) => {
                       const id = (c as any).accessorKey || (c as any).id || String(i);
                       const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
+                      if (id.startsWith('__')) return null; // skip internal columns
                       const vis = colVis[id] !== false;
                       return (
                         <button key={id} className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
@@ -298,7 +302,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {!isLoading && !error && data.length > 0 && (
           <table className="w-full border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()) }}>
             <thead>{table.getHeaderGroups().map(renderHead)}</thead>
-            <tbody>{table.getRowModel().rows.map(renderRow)}</tbody>
+            <tbody>{table.getRowModel().rows.map((row, idx) => renderRow(row, idx))}</tbody>
           </table>
         )}
       </div>

@@ -7,9 +7,10 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": "src",
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": false,
+    "types": []
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.*", "node_modules", "dist"]

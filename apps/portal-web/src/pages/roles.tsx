@@ -13,6 +13,6 @@ export function RolesPage() {
   ], []);
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden"><h1 className="text-2xl font-bold">Roles</h1>
-    <DataGrid columns={columns} data={data || []} title="Roles" enableSelection enableSorting enableColumnVisibility enableExport enableDensity onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No roles found." />
+    <DataGrid columns={columns} data={data || []} title="Roles" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No roles found." />
   </div>);
 }
