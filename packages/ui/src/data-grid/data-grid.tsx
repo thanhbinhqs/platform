@@ -28,12 +28,50 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────
 
+/** Column format for display & export */
+export interface ColumnFormat {
+  /** Underlying value type */
+  type: 'text' | 'number' | 'date' | 'datetime' | 'enum' | 'boolean' | 'currency' | 'percentage';
+  /** Map raw value → display label (for 'enum' type) */
+  enumValues?: Record<string, string>;
+  /** Date format pattern (default: 'DD/MM/YYYY' or 'DD/MM/YYYY HH:mm') */
+  dateFormat?: string;
+  /** Intl number format style (for 'number'/'currency'/'percentage') */
+  numberStyle?: 'decimal' | 'currency' | 'percent';
+  /** Currency code (for 'currency' type, default 'USD') */
+  currency?: string;
+  /** Fixed decimal places (default: 2 for number/currency, 0 for percentage) */
+  decimalPlaces?: number;
+  /** Prefix string (e.g. '$') */
+  prefix?: string;
+  /** Suffix string (e.g. '%', ' kg') */
+  suffix?: string;
+  /** Locale for number/date formatting (default 'en-US') */
+  locale?: string;
+}
+
+/** Excel export column properties (for future xlsx export) */
+export interface ExcelColumnProperties {
+  /** Excel number format string (e.g. '#,##0.00', 'DD/MM/YYYY', '@') */
+  numberFormat?: string;
+  /** Column width in characters */
+  width?: number;
+  /** Text alignment */
+  alignment?: 'left' | 'center' | 'right';
+  /** Wrap text */
+  wrapText?: boolean;
+}
+
 export interface ColumnMeta {
   filterType?: 'text' | 'select' | 'number' | 'date' | 'boolean';
   filterOptions?: { label: string; value: string }[];
   align?: 'left' | 'center' | 'right';
   cellClass?: string;
   headerClass?: string;
+  /** Display format for rendering & export */
+  format?: ColumnFormat;
+  /** Excel export properties (used by xlsx generator) */
+  excel?: ExcelColumnProperties;
 }
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown> & { meta?: ColumnMeta };
@@ -106,12 +144,85 @@ function fmtVal(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Format a value according to ColumnFormat metadata.
+ * Falls back to fmtVal() when no format is provided.
+ */
+function getFormattedValue(value: unknown, format?: ColumnFormat): string {
+  if (value === null || value === undefined) return '—';
+  if (!format) {
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  const { type, enumValues, decimalPlaces, locale = 'en-US', prefix, suffix, currency, dateFormat } = format;
+
+  switch (type) {
+    case 'enum':
+      return enumValues?.[String(value)] ?? String(value);
+
+    case 'boolean':
+      return value ? 'Yes' : 'No';
+
+    case 'date':
+    case 'datetime': {
+      if (!value) return '—';
+      const d = new Date(String(value));
+      if (isNaN(d.getTime())) return String(value);
+      try {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        if (type === 'datetime') {
+          if (dateFormat?.includes('YYYY-MM-DD')) {
+            return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+          }
+          return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+        }
+        if (dateFormat?.includes('YYYY-MM-DD')) return `${yyyy}-${mm}-${dd}`;
+        return `${dd}/${mm}/${yyyy}`;
+      } catch {
+        return String(value);
+      }
+    }
+
+    case 'number':
+    case 'currency':
+    case 'percentage': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      const dec = decimalPlaces ?? (type === 'percentage' ? 0 : 2);
+      const formatted = num.toLocaleString(locale, {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec,
+        style: type === 'currency' ? 'currency' : 'decimal',
+        currency: type === 'currency' ? (currency ?? 'USD') : undefined,
+      });
+      const pfx = prefix ?? '';
+      const sfx = suffix ?? (type === 'percentage' ? '%' : '');
+      return `${pfx}${formatted}${sfx}`;
+    }
+
+    default:
+      return String(value);
+  }
+}
+
 function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
   const h = cols.filter(c => (c as any).accessorKey || (c as any).id)
     .map(c => typeof (c as any).header === 'string' ? (c as any).header : (c as any).id || '');
   const d = rows.map(r =>
     cols.filter(c => (c as any).accessorKey)
-      .map(c => { const v = fmtVal((r as any)[(c as any).accessorKey]); return v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v; })
+      .map(c => {
+        const meta = (c as any).meta as ColumnMeta | undefined;
+        const fmt = meta?.format;
+        const v = fmt
+          ? getFormattedValue((r as any)[(c as any).accessorKey], fmt)
+          : fmtVal((r as any)[(c as any).accessorKey]);
+        return v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+      })
       .join(',')
   );
   const csv = [h.join(','), ...d].join('\n');
