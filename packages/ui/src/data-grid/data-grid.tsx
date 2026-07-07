@@ -25,7 +25,6 @@ import {
   ChevronsLeft, ChevronsRight, Download, Columns,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
-import ExcelJS from 'exceljs';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -51,7 +50,7 @@ export interface ColumnFormat {
   locale?: string;
 }
 
-/** Excel export column properties (for future xlsx export) */
+/** Excel export column properties (for xlsx generation) */
 export interface ExcelColumnProperties {
   /** Excel number format string (e.g. '#,##0.00', 'DD/MM/YYYY', '@') */
   numberFormat?: string;
@@ -61,6 +60,20 @@ export interface ExcelColumnProperties {
   alignment?: 'left' | 'center' | 'right';
   /** Wrap text */
   wrapText?: boolean;
+  /** Font family (e.g. 'Calibri', 'Arial', 'Segoe UI', 'Times New Roman') */
+  fontName?: string;
+  /** Font size in points (e.g. 11) */
+  fontSize?: number;
+  /** Font ARGB color in hex (e.g. 'FF333333'). Omit = default (black). */
+  fontColor?: string;
+  /** Cell background fill ARGB color (e.g. 'FFFFF2CC' for pale yellow) */
+  fillColor?: string;
+  /** Bold text */
+  bold?: boolean;
+  /** Italic text */
+  italic?: boolean;
+  /** Header cell fill ARGB color (overrides fillColor for header) */
+  headerFillColor?: string;
 }
 
 export interface ColumnMeta {
@@ -249,7 +262,8 @@ function inferNumberFmt(fmt: ColumnFormat): string | undefined {
  * column.meta.excel (numberFormat, width, alignment, wrapText).
  */
 export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
-  const workbook = new ExcelJS.Workbook();
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.Workbook();
   workbook.creator = 'Portal';
   const ws = workbook.addWorksheet(name.slice(0, 31));
 
@@ -265,11 +279,28 @@ export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name:
     };
   });
 
-  // ── Style header row ──
+  // ── Style header row (per-column) ──
   const hdrRow = ws.getRow(1);
-  hdrRow.font = { bold: true, size: 11 };
-  hdrRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
   hdrRow.alignment = { horizontal: 'center', vertical: 'middle' };
+  visibleCols.forEach((c, colIdx) => {
+    const colNum = colIdx + 1;
+    const cell = hdrRow.getCell(colNum);
+    const xp = ((c as any).meta as ColumnMeta | undefined)?.excel;
+    cell.font = {
+      bold: xp?.bold ?? true,
+      name: xp?.fontName ?? 'Calibri',
+      size: xp?.fontSize ?? 11,
+      color: xp?.fontColor ? { argb: xp.fontColor } : undefined,
+    };
+    if (xp?.headerFillColor ?? xp?.fillColor) {
+      cell.fill = {
+        type: 'pattern', pattern: 'solid',
+        fgColor: { argb: xp?.headerFillColor ?? xp?.fillColor ?? 'FFF5F5F5' },
+      };
+    } else {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+    }
+  });
 
   // ── Data rows ──
   for (const row of rows) {
@@ -297,25 +328,44 @@ export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name:
     ws.addRow(rowData);
   }
 
-  // ── Column-level formatting (number format, alignment) ──
+  // ── Column-level formatting (number format, alignment, font, fill) ──
   visibleCols.forEach((c, colIdx) => {
     const meta = (c as any).meta as ColumnMeta | undefined;
     const colNum = colIdx + 1;
-    const excelProps = meta?.excel;
+    const xp = meta?.excel;
     const colFmt = meta?.format;
 
-    // Number format: explicit excel.numberFormat > inferred from format.type
-    const numFmt = excelProps?.numberFormat ?? (colFmt ? inferNumberFmt(colFmt) : undefined);
+    const numFmt = xp?.numberFormat ?? (colFmt ? inferNumberFmt(colFmt) : undefined);
 
-    if (numFmt || excelProps?.alignment) {
+    const hasStyle = Boolean(numFmt || xp?.alignment || xp?.wrapText
+      || xp?.fontName || xp?.fontSize || xp?.fontColor
+      || xp?.fillColor || xp?.bold || xp?.italic);
+
+    if (hasStyle) {
       for (let rowIdx = 2; rowIdx <= rows.length + 1; rowIdx++) {
         const cell = ws.getCell(rowIdx, colNum);
         if (numFmt) cell.numFmt = numFmt;
-        if (excelProps?.alignment) {
-          cell.alignment = { horizontal: excelProps.alignment as any, vertical: 'middle' };
+        // Font
+        if (xp?.fontName || xp?.fontSize || xp?.fontColor || xp?.bold || xp?.italic) {
+          cell.font = {
+            ...(xp?.fontName ? { name: xp.fontName } : {}),
+            ...(xp?.fontSize ? { size: xp.fontSize } : {}),
+            ...(xp?.fontColor ? { color: { argb: xp.fontColor } } : {}),
+            ...(xp?.bold !== undefined ? { bold: xp.bold } : {}),
+            ...(xp?.italic !== undefined ? { italic: xp.italic } : {}),
+          };
         }
-        if (excelProps?.wrapText) {
-          cell.alignment = { ...(cell.alignment || {}), wrapText: true };
+        // Fill (background color)
+        if (xp?.fillColor) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: xp.fillColor } };
+        }
+        // Alignment
+        if (xp?.alignment || xp?.wrapText) {
+          cell.alignment = {
+            ...(xp?.alignment ? { horizontal: xp.alignment as any } : {}),
+            ...(xp?.wrapText ? { wrapText: true } : {}),
+            vertical: 'middle',
+          };
         }
       }
     }
