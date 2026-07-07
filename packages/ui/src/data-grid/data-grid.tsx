@@ -462,7 +462,12 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
   const selRows = table.getSelectedRowModel().flatRows.map(r => r.original);
   const hasSel = selRows.length > 0;
-  const total = serverSide ? (serverSide.pageCount > 0 ? serverSide.pageCount * pag.pageSize : data.length) : data.length;
+  const isManualFiltering = serverSide?.manualFiltering === true;
+  const total = serverSide?.manualPagination
+    ? (isManualFiltering
+        ? (serverSide.pageCount > 1 ? serverSide.pageCount * pag.pageSize : data.length)
+        : table.getFilteredRowModel().rows.length)
+    : data.length;
   const { pageIndex } = table.getState().pagination;
   const pageCount = serverSide?.pageCount ?? table.getPageCount();
 
@@ -614,7 +619,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
       {/* ── Pagination ── */}
       {!isLoading && !error && data.length > 0 && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-2 text-sm">
           <div className="text-xs text-muted-foreground">
             {pageIndex * pag.pageSize + 1}–{Math.min((pageIndex + 1) * pag.pageSize, total)} of {total}
             {hasSel && ` · ${selRows.length} selected`}

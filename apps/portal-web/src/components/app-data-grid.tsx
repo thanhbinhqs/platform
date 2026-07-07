@@ -209,12 +209,21 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   };
 
   const updateFilter = (idx: number, field: string, val: unknown) => {
-    const f = [...activeFilters];
-    const existing = f[idx];
-    if (!existing) return;
-    f[idx] = { field: existing.field, operator: existing.operator, value: existing.value, [field]: val };
-    setActiveFilters(f);
+    setActiveFilters(prev => prev.map((f, i) => i === idx ? { ...f, [field]: val } : f));
   };
+
+  // ── Connect sidebar activeFilters → TanStack columnFilters ──
+  const dataGridColumnFilters = useMemo(() => {
+    return activeFilters
+      .filter(f => f.value !== '' && f.value !== undefined && f.value !== null)
+      .map(f => ({ id: f.field, value: f.value }));
+  }, [activeFilters]);
+
+  const dataGridServerSide = useMemo(() => ({
+    ...(serverSide || {}),
+    manualFiltering: false,
+    columnFilters: dataGridColumnFilters,
+  }), [serverSide, dataGridColumnFilters]);
 
   // ── Render filter sidebar ──
   const renderFilterSidebar = () => {
@@ -312,7 +321,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
         {/* Apply/Clear */}
         {activeFilters.length > 0 && (
           <div className="flex gap-2 pt-2">
-            <button className="flex-1 rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90" onClick={() => {}}>Apply</button>
+            <button className="flex-1 rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90" onClick={() => setActiveFilters(prev => [...prev])}>Apply</button>
             <button className="rounded bg-muted px-3 py-1.5 text-xs hover:bg-accent" onClick={() => setActiveFilters([])}>Clear</button>
           </div>
         )}
@@ -424,7 +433,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           columnVisibility={colVis}
           onColumnVisibilityChange={(v: any) => setColVis(v)}
           pageSize={pageSize}
-          serverSide={serverSide as any}
+          serverSide={dataGridServerSide as any}
           onRowClick={(row) => {
             // If we have context menu items, set row for menu
             if (contextMenuItems.length > 0) {
