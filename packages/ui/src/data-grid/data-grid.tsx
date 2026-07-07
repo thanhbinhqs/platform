@@ -74,6 +74,8 @@ export interface ExcelColumnProperties {
   italic?: boolean;
   /** Header cell fill ARGB color (overrides fillColor for header) */
   headerFillColor?: string;
+  /** Whether this column appears in the xlsx export. Default true. */
+  exportable?: boolean;
 }
 
 export interface ColumnMeta {
@@ -225,10 +227,16 @@ export function getFormattedValue(value: unknown, format?: ColumnFormat): string
 }
 
 export function exportCsv<T>(rows: T[], cols: DataGridColumn<T>[], name: string) {
-  const h = cols.filter(c => (c as any).accessorKey || (c as any).id)
+  const visibleCols = cols.filter(c => {
+    const ak = (c as any).accessorKey;
+    if (!ak && !(c as any).id) return false;
+    const xp = ((c as any).meta as ColumnMeta | undefined)?.excel;
+    return xp?.exportable !== false;
+  });
+  const h = visibleCols
     .map(c => typeof (c as any).header === 'string' ? (c as any).header : (c as any).id || '');
   const d = rows.map(r =>
-    cols.filter(c => (c as any).accessorKey)
+    visibleCols
       .map(c => {
         const meta = (c as any).meta as ColumnMeta | undefined;
         const fmt = meta?.format;
@@ -267,7 +275,12 @@ export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name:
   workbook.creator = 'Portal';
   const ws = workbook.addWorksheet(name.slice(0, 31));
 
-  const visibleCols = cols.filter(c => (c as any).accessorKey);
+  const visibleCols = cols.filter(c => {
+    const ak = (c as any).accessorKey;
+    if (!ak) return false;
+    const xp = ((c as any).meta as ColumnMeta | undefined)?.excel;
+    return xp?.exportable !== false;
+  });
 
   // ── Column definitions ──
   ws.columns = visibleCols.map((c) => {
