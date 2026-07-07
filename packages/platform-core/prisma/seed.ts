@@ -172,6 +172,81 @@ async function main() {
   }
 
   console.log(`  ✓ Admin user: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+
+  // ── Rules (1000 rows) ────────────────────────────────────
+  const ruleEvents = [
+    'claim.submitted', 'transaction.created', 'admin.action', 'email.bulk',
+    'auth.login', 'withdrawal.requested', 'user.kyc.submitted', 'ticket.created',
+    'api.request', 'cron.weekly', 'data.updated', 'cron.daily',
+    'order.placed', 'order.cancelled', 'payment.failed', 'invoice.generated',
+    'user.registered', 'user.deleted', 'report.generated', 'alert.threshold',
+  ];
+  const ruleStatuses: ('DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'ERROR')[] = [
+    'DRAFT', 'ACTIVE', 'ACTIVE', 'ACTIVE', 'PAUSED', 'ARCHIVED', 'ERROR',
+  ];
+  const rulePriorities = [1, 2, 3, 4, 5]; // 1=low, 5=urgent/critical
+  const rulePrefixes = [
+    'Auto-approve', 'Flag', 'Require', 'Review', 'Block', 'Notify', 'Validate',
+    'Escalate', 'Rate limit', 'Generate', 'Archive', 'Invalidate', 'Detect',
+    'Prevent', 'Monitor', 'Approve', 'Reject', 'Deploy', 'Rollback', 'Sync',
+    'Backup', 'Restore', 'Verify', 'Audit', 'Alert',
+  ];
+  const ruleSubjects = [
+    'low-value claims', 'high-risk transactions', 'admin actions', 'bulk email',
+    'suspicious IPs', 'large withdrawals', 'KYC documents', 'VIP tickets',
+    'API access', 'weekly reports', 'cache on update', 'old logs',
+    'new orders', 'failed payments', 'user registrations', 'invoices',
+    'data exports', 'security alerts', 'configuration changes', 'system backups',
+  ];
+
+  // Delete existing seed rules first
+  const existingRules = await prisma.rule.findMany({ where: { createdBy: 'seed' }, select: { id: true } });
+  if (existingRules.length > 0) {
+    await prisma.ruleExecution.deleteMany({ where: { ruleId: { in: existingRules.map(r => r.id) } } });
+    await prisma.rule.deleteMany({ where: { createdBy: 'seed' } });
+    console.log(`  ✓ Cleaned ${existingRules.length} existing seed rules`);
+  }
+
+  const rulesBatch: any[] = [];
+  const now = new Date();
+  for (let i = 1; i <= 1000; i++) {
+    const prefix = rulePrefixes[i % rulePrefixes.length];
+    const subject = ruleSubjects[i % ruleSubjects.length];
+    const event = ruleEvents[i % ruleEvents.length];
+    const status = ruleStatuses[i % ruleStatuses.length];
+    const priority = rulePriorities[i % rulePriorities.length];
+    const daysAgo = Math.floor(Math.random() * 365);
+    const createdAt = new Date(now.getTime() - daysAgo * 86400000);
+    const updatedAt = new Date(createdAt.getTime() + Math.floor(Math.random() * 30) * 86400000);
+
+    rulesBatch.push({
+      tenantId: defaultTenant.id,
+      name: `${prefix} ${subject} #${i}`,
+      description: `Rule #${i}: ${prefix.toLowerCase()} ${subject} automatically via event-driven automation.`,
+      priority,
+      status,
+      event,
+      conditions: { field: event.split('.')[0], operator: 'eq', value: event.split('.')[1] },
+      actions: { type: status === 'ACTIVE' ? 'EXECUTE' : 'QUEUE', target: 'notification', params: { channel: 'email' } },
+      metadata: { seed: true, batch: Math.ceil(i / 100) },
+      createdBy: 'seed',
+      updatedBy: 'seed',
+      createdAt,
+      updatedAt,
+    });
+  }
+
+  // Batch insert
+  const BATCH_SIZE = 100;
+  let inserted = 0;
+  for (let i = 0; i < rulesBatch.length; i += BATCH_SIZE) {
+    const batch = rulesBatch.slice(i, i + BATCH_SIZE);
+    await prisma.rule.createMany({ data: batch, skipDuplicates: true });
+    inserted += batch.length;
+    console.log(`  → Rules: ${inserted}/${rulesBatch.length}`);
+  }
+  console.log(`  ✓ ${inserted} rules seeded`);
+
   console.log('✅ Seed completed.');
 }
 

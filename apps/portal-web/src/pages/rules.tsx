@@ -17,8 +17,10 @@ export function RulesPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }
       });
       const j = await r.json();
-      const d = j?.data || j;
-      return { items: (d?.data || d || []) as Item[], total: d?.total || (d?.data || d || []).length };
+      return {
+        items: (j?.data || j || []) as Item[],
+        total: j?.total || j?.meta?.total || 0,
+      };
     },
   });
 
