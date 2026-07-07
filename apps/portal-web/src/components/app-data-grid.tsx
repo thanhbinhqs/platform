@@ -80,6 +80,8 @@ export interface AppDataGridProps<TData> {
   enableColumnVisibility?: boolean;
   enableDensity?: boolean;
   pageSize?: number;
+  pageSizeOptions?: number[];
+  total?: number;
   onRowClick?: (row: TData) => void;
   onSelectionChange?: (rows: TData[]) => void;
   classNames?: { wrapper?: string; table?: string; header?: string; row?: string; cell?: string };
@@ -114,7 +116,7 @@ export interface AppDataGridProps<TData> {
 export function AppDataGrid<TData extends { id?: string | number }>({
   columns, data, title, filterFields = [], bulkActions = [], tableActions = [],
   enableSelection, enableRowNumber, enableSorting, enableExport, enableColumnResize, enableColumnVisibility, enableDensity,
-  pageSize = 20, onRowClick, onSelectionChange,
+  pageSize = 20, pageSizeOptions, total: extTotal, onRowClick, onSelectionChange,
   emptyMessage, loading, onSearch, serverSide,
   contextMenuItems = [], exportPermission, columnVisibilityPermission, densityPermission,
   onContextMenuAction,
@@ -433,6 +435,11 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           columnVisibility={colVis}
           onColumnVisibilityChange={(v: any) => setColVis(v)}
           pageSize={pageSize}
+          pageSizeOptions={pageSizeOptions}
+          page={serverSide?.pagination?.pageIndex ?? 0}
+          total={extTotal ?? data?.length ?? 0}
+          onPageChange={(p: number) => serverSide?.onPaginationChange?.({ pageIndex: p, pageSize })}
+          onPageSizeChange={(s: number) => serverSide?.onPaginationChange?.({ pageIndex: 0, pageSize: s })}
           serverSide={dataGridServerSide as any}
           onRowClick={(row) => {
             // If we have context menu items, set row for menu

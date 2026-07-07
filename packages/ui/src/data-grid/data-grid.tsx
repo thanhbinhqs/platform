@@ -20,11 +20,10 @@ import {
   useState, useMemo, useCallback, useRef, useEffect,
   type ReactNode, type KeyboardEvent,
 } from 'react';
-import {
-  ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, Download, Columns,
+import { ChevronDown, ChevronUp, ChevronsUpDown, Download, Columns,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
+import { PaginationBar } from './pagination-bar';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -100,8 +99,12 @@ export interface DataGridProps<TData> {
   onRetry?: () => void;
   title?: string;
   searchPlaceholder?: string;
+  page?: number;
   pageSize?: number;
   pageSizeOptions?: number[];
+  total?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   enableSelection?: boolean;
   enableRowNumber?: boolean;
   enableSorting?: boolean;
@@ -397,8 +400,10 @@ export async function exportExcel<T>(rows: T[], cols: DataGridColumn<T>[], name:
 
 export function DataGrid<TData extends { [key: string]: any } = Record<string, unknown>>({
   columns: cols, data, isLoading = false, error = null, onRetry,
-  title, pageSize = 20,
+  title, page: extPage, pageSize: extPageSize = 20,
   pageSizeOptions: pso = [10, 20, 50, 100],
+  total: extTotal,
+  onPageChange: extOnPageChange, onPageSizeChange: extOnPageSizeChange,
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
   enableColumnResize, enableExport = true, enableDensity = true,
   density: extDenKey, onDensityChange: extOnDenChange,
@@ -420,26 +425,19 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const [showDenMenu, setShowDenMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const pag = useMemo<PaginationState>(() => serverSide ? serverSide.pagination : { pageIndex: 0, pageSize }, [serverSide, pageSize]);
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
 
   const table = useReactTable({
     data, columns: cols as ColumnDef<TData, unknown>[],
-    state: { sorting: serverSide?.sorting ?? sorting, columnFilters: serverSide?.columnFilters ?? colFilters, globalFilter: serverSide?.globalFilter ?? globalFilter, columnVisibility: colVis, rowSelection: rowSel, pagination: pag },
+    state: { sorting: serverSide?.sorting ?? sorting, columnFilters: serverSide?.columnFilters ?? colFilters, globalFilter: serverSide?.globalFilter ?? globalFilter, columnVisibility: colVis, rowSelection: rowSel },
     onSortingChange: serverSide?.onSortingChange ?? setSorting,
     onColumnFiltersChange: serverSide?.onColumnFiltersChange ?? setColFilters,
     onGlobalFilterChange: serverSide?.onGlobalFilterChange ?? setGlobalFilter,
     onColumnVisibilityChange: setColVis, onRowSelectionChange: setRowSel,
-    onPaginationChange: serverSide?.onPaginationChange ?? (() => {}),
     enableRowSelection: enableSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getFilteredRowModel: !serverSide?.manualFiltering ? getFilteredRowModel() : undefined,
-    getPaginationRowModel: !serverSide?.manualPagination ? getPaginationRowModel() : undefined,
-    manualPagination: serverSide?.manualPagination ?? false,
-    manualSorting: serverSide?.manualSorting ?? false,
-    manualFiltering: serverSide?.manualFiltering ?? false,
-    pageCount: serverSide?.pageCount ?? -1,
     debugTable: false,
   });
 
@@ -463,13 +461,21 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const selRows = table.getSelectedRowModel().flatRows.map(r => r.original);
   const hasSel = selRows.length > 0;
   const isManualFiltering = serverSide?.manualFiltering === true;
-  const total = serverSide?.manualPagination
-    ? (isManualFiltering
-        ? (serverSide.pageCount > 1 ? serverSide.pageCount * pag.pageSize : data.length)
-        : table.getFilteredRowModel().rows.length)
-    : data.length;
-  const { pageIndex } = table.getState().pagination;
-  const pageCount = serverSide?.pageCount ?? table.getPageCount();
+  const hasExternalPagination = extTotal !== undefined;
+  const pageIndex = extPage ?? 0;
+  const pSize = extPageSize ?? serverSide?.pagination?.pageSize ?? 20;
+  const total = extTotal ?? (isManualFiltering
+    ? (serverSide?.pageCount ?? 1) * pSize
+    : table.getFilteredRowModel().rows.length);
+  const pageCount = Math.max(1, Math.ceil(total / pSize));
+
+  // Pagination event handlers — prefer external callbacks, fall back to serverSide
+  const handlePageChange: (p: number) => void = extOnPageChange ?? ((p) => {
+    serverSide?.onPaginationChange?.({ pageIndex: p, pageSize: pSize });
+  });
+  const handlePageSizeChange: (s: number) => void = extOnPageSizeChange ?? ((s) => {
+    serverSide?.onPaginationChange?.({ pageIndex: 0, pageSize: s });
+  });
 
   function renderHead(hg: HeaderGroup<TData>) {
     return (
@@ -499,7 +505,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       <tr key={row.id} className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-accent/50'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
         onClick={() => onRowClick?.(row.original)}
         onContextMenu={(e) => { e.preventDefault(); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 bg-card w-12 text-center text-muted-foreground text-xs ${row.getIsSelected() ? 'bg-primary/5' : ''}`}>{rowIdx + 1 + pag.pageIndex * pag.pageSize}</td>}
+        {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 bg-card w-12 text-center text-muted-foreground text-xs ${row.getIsSelected() ? 'bg-primary/5' : ''}`}>{rowIdx + 1 + pageIndex * pSize}</td>}
         {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : 'bg-card'} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
@@ -619,26 +625,14 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
       {/* ── Pagination ── */}
       {!isLoading && !error && data.length > 0 && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-2 text-sm">
-          <div className="text-xs text-muted-foreground">
-            {pageIndex * pag.pageSize + 1}–{Math.min((pageIndex + 1) * pag.pageSize, total)} of {total}
-            {hasSel && ` · ${selRows.length} selected`}
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30" disabled={!table.getCanPreviousPage()} onClick={() => table.setPageIndex(0)}><ChevronsLeft size={16} /></button>
-            <button className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()}><ChevronLeft size={16} /></button>
-            <span className="px-3 text-xs font-medium">Page {pageIndex + 1} of {pageCount}</span>
-            <button className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()}><ChevronRight size={16} /></button>
-            <button className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30" disabled={!table.getCanNextPage()} onClick={() => table.setPageIndex(pageCount - 1)}><ChevronsRight size={16} /></button>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Rows per page:</label>
-            <select className="h-7 rounded-md border bg-background px-2 text-xs outline-none" value={pag.pageSize}
-              onChange={e => { const s = Number(e.target.value); if (serverSide) serverSide.onPaginationChange({ pageIndex: 0, pageSize: s }); else table.setPageSize(s); }}>
-              {pso.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
+        <PaginationBar
+          pageIndex={pageIndex}
+          pageSize={pSize}
+          total={total}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={pso}
+        />
       )}
     </div>
   );

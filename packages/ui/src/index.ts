@@ -44,6 +44,8 @@ export { Toaster } from './toaster';
 export { DataGrid } from './data-grid/data-grid';
 export type { DataGridProps, DataGridColumn, ColumnMeta, ColumnFormat, ExcelColumnProperties } from './data-grid/data-grid';
 export { getFormattedValue, exportExcel, exportCsv } from './data-grid/data-grid';
+export { PaginationBar } from './data-grid/pagination-bar';
+export type { PaginationBarProps } from './data-grid/pagination-bar';
 export { CustomDataGrid } from './custom-data-grid';
 export type { CustomDataGridProps } from './custom-data-grid';
 export { RestDataSource, LocalDataSource, GridEventBus, GridEventType, SelectionPlugin, ScannerPlugin, defaultTheme, darkTheme, highContrastTheme } from './custom-data-grid';

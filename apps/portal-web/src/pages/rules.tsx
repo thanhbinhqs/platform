@@ -34,7 +34,7 @@ export function RulesPage() {
     { id: 'name', label: 'Name', type: 'text' as const, placeholder: 'Search by name...' },
     { id: 'event', label: 'Event', type: 'text' as const },
     { id: 'status', label: 'Status', type: 'select' as const, options: [
-      { label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' },
+      { label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Draft', value: 'draft' },
     ]},
     { id: 'priority', label: 'Priority', type: 'number-range' as const },
     { id: 'createdAt', label: 'Created Date', type: 'date-range' as const },
@@ -77,6 +77,8 @@ export function RulesPage() {
         enableColumnResize
         enableDensity
         pageSize={pageSize}
+        pageSizeOptions={[10, 15, 20, 50, 100]}
+        total={data?.total || 0}
         onSelectionChange={setSelection}
         emptyMessage="No rules found."
         loading={isLoading}
