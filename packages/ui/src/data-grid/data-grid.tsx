@@ -441,11 +441,19 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     debugTable: false,
   });
 
+  // Notify parent of selection changes (avoid table ref in deps — it's derived each render)
+  const prevRowSelRef = useRef(rowSel);
+  const prevSelNotifiedRef = useRef(false);
   useEffect(() => {
-    if (onSelectionChange) {
-      onSelectionChange(table.getSelectedRowModel().flatRows.map(r => r.original));
+    if (!onSelectionChange) return;
+    const currentSel = table.getSelectedRowModel().flatRows.map(r => r.original);
+    // Only fire when selection actually changed
+    if (prevRowSelRef.current !== rowSel) {
+      prevRowSelRef.current = rowSel;
+      prevSelNotifiedRef.current = true;
+      onSelectionChange(currentSel);
     }
-  }, [rowSel, onSelectionChange, table]);
+  }, [rowSel, onSelectionChange]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {

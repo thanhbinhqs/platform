@@ -17,9 +17,11 @@ export function RulesPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }
       });
       const j = await r.json();
+      // Backend wraps in { success, data: { data, total, page, pageSize, totalPages } }
+      const payload = j?.data || j;
       return {
-        items: (j?.data || j || []) as Item[],
-        total: j?.total || j?.meta?.total || 0,
+        items: (Array.isArray(payload) ? payload : payload?.data || []) as Item[],
+        total: payload?.total || 0,
       };
     },
   });
@@ -54,14 +56,19 @@ export function RulesPage() {
     { label: 'Sync', icon: '🔄', onClick: () => toast.info('Syncing...') },
   ], []);
 
+  const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
+    setPage(p.pageIndex);
+    setPageSize(p.pageSize);
+  }, []);
+
   const serverSide = useMemo(() => ({
     manualPagination: true as const,
     manualSorting: false,
     manualFiltering: false,
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
-    onPaginationChange: (p: { pageIndex: number; pageSize: number }) => { setPage(p.pageIndex); setPageSize(p.pageSize); },
-  }), [page, pageSize, data?.total]);
+    onPaginationChange: handlePaginationChange,
+  }), [page, pageSize, data?.total, handlePaginationChange]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">

@@ -154,16 +154,25 @@ export function AppDataGrid<TData extends { id?: string | number }>({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleSelectionChange = (rows: TData[]) => {
+  const handleSelectionChange = useCallback((rows: TData[]) => {
     setSelectedIds(rows.map((r: any) => String(r.id)));
     onSelectionChange?.(rows);
-  };
+  }, [onSelectionChange]);
+  // NOTA BENE: Changes to onSelectionChange (from parent) are rare; React setState functions are stable.
 
-  const handleSearch = (val: string) => {
+  const handleSearch = useCallback((val: string) => {
     setSearchQuery(val);
     onSearch?.(val);
     if (serverSide?.onGlobalFilterChange) serverSide.onGlobalFilterChange(val);
-  };
+  }, [onSearch, serverSide]);
+
+  // ── Pagination callbacks (useCallback so DataGrid useEffect deps stay stable) ──
+  const handleGridPageChange = useCallback((p: number) => {
+    serverSide?.onPaginationChange?.({ pageIndex: p, pageSize });
+  }, [serverSide, pageSize]);
+  const handleGridPageSizeChange = useCallback((s: number) => {
+    serverSide?.onPaginationChange?.({ pageIndex: 0, pageSize: s });
+  }, [serverSide]);
 
   // ── Permission checking ──
   const userRules = useAuthStore((s) => s.user?.rules);
@@ -438,8 +447,8 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           pageSizeOptions={pageSizeOptions}
           page={serverSide?.pagination?.pageIndex ?? 0}
           total={extTotal ?? data?.length ?? 0}
-          onPageChange={(p: number) => serverSide?.onPaginationChange?.({ pageIndex: p, pageSize })}
-          onPageSizeChange={(s: number) => serverSide?.onPaginationChange?.({ pageIndex: 0, pageSize: s })}
+          onPageChange={handleGridPageChange}
+          onPageSizeChange={handleGridPageSizeChange}
           serverSide={dataGridServerSide as any}
           onRowClick={(row) => {
             // If we have context menu items, set row for menu

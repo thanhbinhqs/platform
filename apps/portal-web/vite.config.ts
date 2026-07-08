@@ -7,44 +7,46 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // ── Dev auth mock (temporary — removed when backend is live) ──
+    // ── Dev auth mock (proxies auth to real backend for real JWT) ──
     {
       name: 'dev-auth-mock',
       configureServer(server) {
-        server.middlewares.use('/api', (req, _res, next) => {
+        server.middlewares.use('/api', async (req, _res, next) => {
           if (!req.url) return next();
-          // Only mock auth endpoints so the app stays usable
-          if (req.url === '/v1/auth/me' && req.method === 'GET') {
-            const token = req.headers.authorization?.replace('Bearer ', '') || '';
-            if (!token) { _res.statusCode = 401; return _res.end(JSON.stringify({ message: 'Unauthorized' })); }
-            return _res.end(JSON.stringify({
-              data: {
-                id: 1, username: 'admin', email: 'admin@platform.local',
-                displayName: 'Admin', status: 'active',
-                roles: [{ id: 1, name: 'admin', type: 'admin' }],
-                permissions: ['read:rules','create:rules','update:rules','delete:rules','manage:users'],
-                rules: [{ action: 'manage', subject: 'all' }],
-                createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z',
-              }
-            }));
-          }
+          // Proxy auth endpoints to real backend
           if (req.url === '/v1/auth/login' && req.method === 'POST') {
-            return _res.end(JSON.stringify({
-              data: {
-                accessToken: 'dev-token',
-                refreshToken: 'dev-refresh',
-                user: {
-                  id: 1, username: 'admin', email: 'admin@platform.local',
-                  displayName: 'Admin', status: 'active',
-                  roles: [{ id: 1, name: 'admin', type: 'admin' }],
-                  permissions: ['read:rules','create:rules','update:rules','delete:rules','manage:users'],
-                  rules: [{ action: 'manage', subject: 'all' }],
-                  createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z',
-                }
+            const chunks: Buffer[] = [];
+            req.on('data', (c: Buffer) => chunks.push(c));
+            req.on('end', async () => {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString());
+                const r = await fetch('http://localhost:3000/api/v1/auth/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(body),
+                });
+                const json = await r.json();
+                _res.setHeader('Content-Type', 'application/json');
+                if (!r.ok) { _res.statusCode = r.status; return _res.end(JSON.stringify(json)); }
+                return _res.end(JSON.stringify(json));
+              } catch (e) {
+                _res.statusCode = 500;
+                return _res.end(JSON.stringify({ message: 'Auth proxy failed' }));
               }
-            }));
+            });
+            return;
           }
-          next(); // non-auth → proxy to backend
+          // Proxy /auth/me through to real backend with the real token
+          if ((req.url === '/v1/auth/me' || req.url === '/v1/auth/me/') && req.method === 'GET') {
+            const r = await fetch('http://localhost:3000/api/v1/auth/me', {
+              headers: { 'Authorization': req.headers.authorization || '' },
+            });
+            const json = await r.json();
+            _res.setHeader('Content-Type', 'application/json');
+            if (!r.ok) { _res.statusCode = r.status; return _res.end(JSON.stringify(json)); }
+            return _res.end(JSON.stringify(json));
+          }
+          next(); // non-auth → proxy to backend via Vite
         });
       },
     },
