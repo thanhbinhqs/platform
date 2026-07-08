@@ -605,7 +605,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       )}
 
       {/* ── Table Area ── */}
-      <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-card">
+      <div className="flex-1 min-h-0 overflow-auto isolate rounded-lg border bg-card">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -640,6 +640,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
           pageSizeOptions={pso}
+          className="relative z-30"
         />
       )}
     </div>
