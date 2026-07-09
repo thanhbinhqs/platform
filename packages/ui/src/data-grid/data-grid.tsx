@@ -516,7 +516,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
   function renderHead(hg: HeaderGroup<TData>) {
     return (
-      <tr key={hg.id} className="border-b bg-muted/50">
+      <tr key={hg.id} className="border-b" style={{ backgroundColor: 'var(--color-muted)' }}>
         {enableRowNumber && <th className={`${den.cell} ${den.font} sticky text-center text-muted-foreground`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
         {enableSelection && <th className={`${den.cell} ${den.font} sticky text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
@@ -524,7 +524,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           const cs = enableSorting && h.column.getCanSort();
           const stickyAttr = getColStickyAttr(h.column.id);
           return (
-            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''} ${stickyAttr ? 'bg-muted/50' : ''}`}
+            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''}`}
               onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize(), ...(stickyAttr ? { backgroundColor: 'var(--color-muted)' } : {}) }} colSpan={h.colSpan}>
               <div className="flex items-center gap-1">
                 {flexRender(h.column.columnDef.header, h.getContext())}
