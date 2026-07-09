@@ -152,9 +152,9 @@ interface DensityConfig {
 }
 
 const DENSITY_MAP: Record<string, DensityConfig> = {
-  compact:      { label: 'Compact',     row: 'py-0.5', cell: 'px-2 py-1',   font: 'text-xs' },
-  standard:     { label: 'Standard',    row: 'py-1',   cell: 'px-3 py-2',   font: 'text-sm' },
-  comfortable:  { label: 'Comfortable', row: 'py-2',   cell: 'px-4 py-3',   font: 'text-sm' },
+  compact:      { label: 'Compact',     row: 'py-0',   cell: 'px-1.5 py-0.5', font: 'text-xs' },
+  standard:     { label: 'Standard',    row: 'py-0.5', cell: 'px-2 py-1',     font: 'text-xs' },
+  comfortable:  { label: 'Comfortable', row: 'py-1.5', cell: 'px-3 py-2',     font: 'text-sm' },
 };
 
 function fmtVal(v: unknown): string {
@@ -424,6 +424,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const [showColMenu, setShowColMenu] = useState(false);
   const [showDenMenu, setShowDenMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [contextRowId, setContextRowId] = useState<string | null>(null);
 
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
 
@@ -454,6 +455,15 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       onSelectionChange(currentSel);
     }
   }, [rowSel, onSelectionChange]);
+
+  // Clear context-row highlight when clicking outside rows
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect((): (() => void) | undefined => {
+    if (!contextRowId) return undefined;
+    const handler = (e: MouseEvent) => setContextRowId((e.target as HTMLElement).closest('tr') ? contextRowId : null);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [contextRowId]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
@@ -509,12 +519,16 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   }
 
   function renderRow(row: Row<TData>, rowIdx: number) {
+    const isEven = rowIdx % 2 === 0;
+    const isCtxRow = contextRowId === row.id;
+    const stripeClass = isEven ? 'bg-card' : 'bg-muted/10';
     return (
-      <tr key={row.id} className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-accent/50'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
+      <tr key={row.id}
+        className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass + ' hover:bg-accent/30'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
         onClick={() => onRowClick?.(row.original)}
-        onContextMenu={(e) => { e.preventDefault(); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 bg-card w-12 text-center text-muted-foreground text-xs ${row.getIsSelected() ? 'bg-primary/5' : ''}`}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : 'bg-card'} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
+        {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 w-12 text-center text-muted-foreground ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${den.font}`}>{rowIdx + 1 + pageIndex * pSize}</td>}
+        {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''}`}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
@@ -527,19 +541,18 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     <div className={`flex flex-1 flex-col min-h-0 space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
       {/* ── Panel Header ── */}
       {Boolean(title || enableExport || enableColumnVisibility || enableDensity || actionButtons) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-          <div className="flex items-center gap-3">
-            {title && <h2 className="text-lg font-bold tracking-tight">{title}</h2>}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 min-h-0">
+          <div className="flex items-center gap-2">
+            {title && <h2 className="text-sm font-bold tracking-tight">{title}</h2>}
             {hasSel && <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selRows.length} selected</span>}
             {hasSel && bulkActions}
             {actionButtons}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {enableExport && (
               <div className="relative">
-                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
-                  onClick={() => setShowExportMenu(!showExportMenu)}>
-                  <Download size={14} /> Export <ChevronDown size={12} />
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
+                  onClick={() => setShowExportMenu(!showExportMenu)}><Download size={14} /> Export <ChevronDown size={12} />
                 </button>
                 {showExportMenu && (
                   <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border bg-card shadow-xl"
@@ -607,20 +620,20 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       {/* ── Table Area ── */}
       <div className="flex-1 min-h-0 overflow-auto isolate rounded-lg border bg-card">
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="mt-3 text-sm">Loading data\u2026</p>
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="mt-2 text-xs">Loading…</p>
           </div>
         )}
         {!isLoading && error && (
-          <div className="flex flex-col items-center justify-center py-16 text-red-500">
-            <p className="text-sm font-medium">{error}</p>
-            {onRetry && <button className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90" onClick={onRetry}>Retry</button>}
+          <div className="flex flex-col items-center justify-center py-8 text-red-500">
+            <p className="text-xs font-medium">{error}</p>
+            {onRetry && <button className="mt-2 rounded-md bg-primary px-3 py-1 text-xs text-white hover:bg-primary/90" onClick={onRetry}>Retry</button>}
           </div>
         )}
         {!isLoading && !error && data.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <p className="text-sm">{emptyMessage}</p>
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <p className="text-xs">{emptyMessage}</p>
           </div>
         )}
         {!isLoading && !error && data.length > 0 && (

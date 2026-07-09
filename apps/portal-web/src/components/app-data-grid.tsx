@@ -240,11 +240,14 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   const renderFilterSidebar = () => {
     if (!showFilter) return null;
     return (
-      <div className="w-72 shrink-0 border-r bg-card overflow-y-auto p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm flex items-center gap-1"><Filter size={14} /> Filters</h3>
-          <button className="rounded p-1 hover:bg-accent" onClick={() => setShowFilter(false)}><X size={14} /></button>
-        </div>
+      <>
+        {/* Overlay backdrop on mobile */}
+        <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setShowFilter(false)} />
+        <div className="fixed left-0 top-0 z-50 h-full w-72 border-r bg-card overflow-y-auto p-3 space-y-2 shadow-xl lg:static lg:z-auto lg:shadow-none lg:border-r lg:h-auto lg:overflow-visible lg:w-72 shrink-0">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-1"><Filter size={14} /> Filters</h3>
+            <button className="rounded p-1 hover:bg-accent lg:hidden" onClick={() => setShowFilter(false)}><X size={14} /></button>
+          </div>
 
         {/* Search */}
         <div className="relative">
@@ -337,6 +340,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           </div>
         )}
       </div>
+      </>
     );
   };
 
@@ -348,13 +352,13 @@ export function AppDataGrid<TData extends { id?: string | number }>({
       {/* Main area */}
       <div className="flex flex-1 flex-col min-h-0">
         {/* Table header: Title + Bulk Actions + Actions */}
-        <div className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 mb-2 shrink-0">
-          <div className="flex items-center gap-3">
-            {title && <h2 className="text-lg font-bold tracking-tight">{title}</h2>}
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 mb-1 shrink-0">
+          <div className="flex items-center gap-2">
+            {title && <h2 className="text-sm font-bold tracking-tight">{title}</h2>}
             {/* Bulk actions dropdown */}
             {selectedIds.length > 0 && visibleBulkActions.length > 0 && (
               <div className="relative">
-                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowBulk(!showBulk)}>
                   Bulk ({selectedIds.length}) ▾
                 </button>
@@ -374,22 +378,22 @@ export function AppDataGrid<TData extends { id?: string | number }>({
 
           {/* Right: Actions + Settings */}
           <div className="flex items-center gap-1 ml-auto">
-            <button className={`inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent' : ''}`}
+            <button className={`inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent' : ''}`}
               onClick={() => setShowFilter(!showFilter)}><Filter size={14} /> Filters</button>
-            <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
+            <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
             {visibleTableActions.map((a, i) => (
-              <button key={i} className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-xs font-medium border bg-background hover:bg-accent ${a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
+              <button key={i} className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium border bg-background hover:bg-accent ${a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
                 onClick={a.onClick}>
                 {a.icon} {a.label}
               </button>
             ))}
             <span className="mx-1 h-5 w-px bg-border" /> {/* Separator */}
             {canExport && (
-              <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
+              <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
             )}
             {canShowColVis && (
               <div className="relative" ref={colMenuRef}>
-                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
                 {showColMenu && (
                   <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border bg-card shadow-xl">
@@ -412,7 +416,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
             )}
             {canShowDensity && (
               <div className="relative" ref={denMenuRef}>
-                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowDenMenu(!showDenMenu)}><SlidersHorizontal size={14} /> {DENSITY_MAP[denKey]?.label ?? 'Density'}</button>
                 {showDenMenu && (
                   <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border bg-card shadow-xl">
