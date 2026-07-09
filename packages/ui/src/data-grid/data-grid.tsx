@@ -20,7 +20,7 @@ import {
   useState, useMemo, useCallback, useRef, useEffect,
   type ReactNode, type KeyboardEvent,
 } from 'react';
-import { ChevronDown, ChevronUp, ChevronsUpDown, Download, Columns,
+import { ChevronDown, ChevronUp, ChevronsUpDown, Download,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
 import { PaginationBar } from './pagination-bar';
@@ -118,6 +118,9 @@ export interface DataGridProps<TData> {
   /** External column visibility control — when provided, DataGrid defers to this value */
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
+  /** External column sticky state */
+  columnStickyState?: Record<string, 'left' | 'right' | null>;
+  onColumnStickyChange?: (sticky: Record<string, 'left' | 'right' | null>) => void;
   onRowClick?: (row: TData) => void;
   /** Right-click on a row — position is clientX/clientY for context menu placement */
   onRowContextMenu?: (row: TData, position: { x: number; y: number }) => void;
@@ -408,6 +411,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   enableColumnResize, enableExport = true, enableDensity = true,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
+  columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
   onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
@@ -421,11 +425,12 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const [denKeyInternal, setDenKeyInternal] = useState('standard');
   const denKey: string = extDenKey ?? denKeyInternal;
   const setDenKey = extOnDenChange ?? setDenKeyInternal;
-  const [showColMenu, setShowColMenu] = useState(false);
   const [showDenMenu, setShowDenMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [contextRowId, setContextRowId] = useState<string | null>(null);
-  const [columnSticky, setColumnSticky] = useState<Record<string, 'left' | 'right' | null>>({});
+  const [columnStickyInternal, setColumnStickyInternal] = useState<Record<string, 'left' | 'right' | null>>({});
+  const columnSticky = extColSticky ?? columnStickyInternal;
+  const setColumnSticky = extOnColStickyChange ?? setColumnStickyInternal;
 
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
 
@@ -556,7 +561,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   return (
     <div className={`flex flex-1 flex-col min-h-0 space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
       {/* ── Panel Header ── */}
-      {Boolean(title || enableExport || enableColumnVisibility || enableDensity || actionButtons) && (
+      {Boolean(title || enableExport || enableDensity || actionButtons) && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 min-h-0">
           <div className="flex items-center gap-2">
             {title && <h2 className="text-sm font-bold tracking-tight">{title}</h2>}
@@ -587,45 +592,6 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                       }}>
                       <FileSpreadsheet size={14} /> Export XLSX
                     </button>
-                  </div>
-                )}
-              </div>
-            )}
-            {enableColumnVisibility && (
-              <div className="relative">
-                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
-                  onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
-                {showColMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border bg-card shadow-xl">
-                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">Column Settings</div>
-                    {cols.map((c, i) => {
-                      const id = (c as any).accessorKey || (c as any).id || String(i);
-                      const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
-                      if (id.startsWith('__')) return null;
-                      const vis = colVis[id] !== false;
-                      const stickyPos = columnSticky[id] ?? null;
-                      return (
-                        <div key={id} className="flex items-center gap-1 px-2 py-1 text-sm hover:bg-accent/30">
-                          <button className="shrink-0 rounded p-1 hover:bg-accent" title={vis ? 'Hide' : 'Show'}
-                            onClick={() => setColVis({ ...colVis, [id]: !vis })}>
-                            {vis ? <Eye size={14} /> : <EyeOff size={14} className="text-muted-foreground" />}
-                          </button>
-                          <span className={`flex-1 truncate text-xs ${vis ? '' : 'text-muted-foreground line-through'}`}>{hdr}</span>
-                          {vis && (
-                            <div className="flex items-center gap-0.5">
-                              <button className={`rounded p-0.5 ${stickyPos === 'left' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
-                                title="Pin left" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h6m0 0 3-3m-3 3 3 3"/><path d="M21 5v14"/></svg>
-                              </button>
-                              <button className={`rounded p-0.5 ${stickyPos === 'right' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
-                                title="Pin right" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12h-6m0 0 3-3m-3 3 3 3"/><path d="M3 5v14"/></svg>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
               </div>
