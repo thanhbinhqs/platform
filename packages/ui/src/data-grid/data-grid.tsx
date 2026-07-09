@@ -517,8 +517,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   function renderHead(hg: HeaderGroup<TData>) {
     return (
       <tr key={hg.id} className="border-b bg-muted/50">
-        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky w-12 text-center text-muted-foreground`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)' }}>#</th>}
-        {enableSelection && <th className={`${den.cell} ${den.font} sticky w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20, backgroundColor: 'var(--color-muted)' }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky text-center text-muted-foreground`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
+        {enableSelection && <th className={`${den.cell} ${den.font} sticky text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -552,8 +552,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         style={{ backgroundColor: rowBg }}
         onClick={() => onRowClick?.(row.original)}
         onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td className={`${den.cell} sticky w-12 text-center text-muted-foreground ${den.font}`} style={{ left: 0, zIndex: 10, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td className={`${den.cell} sticky w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 10, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableRowNumber && <td className={`${den.cell} sticky text-center text-muted-foreground ${den.font}`} style={{ left: 0, zIndex: 10, minWidth: 48, width: 48, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
+        {enableSelection && <td className={`${den.cell} sticky text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 10, minWidth: 40, width: 40, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
@@ -639,7 +639,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           </div>
         )}
         {!isLoading && !error && data.length > 0 && (
-          <table className="w-full border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()) }}>
+          <table className="w-full border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
             <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
             <tbody>{table.getRowModel().rows.map((row, idx) => renderRow(row, idx))}</tbody>
           </table>
