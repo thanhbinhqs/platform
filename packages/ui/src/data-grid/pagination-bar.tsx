@@ -100,7 +100,6 @@ export function PaginationBar({
           value={pageSize}
           onChange={(e) => {
             onPageSizeChange(Number(e.target.value));
-            onPageChange(0);
           }}
         >
           {pageSizeOptions.map((s) => (

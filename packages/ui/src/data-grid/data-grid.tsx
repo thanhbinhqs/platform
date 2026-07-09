@@ -425,8 +425,22 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const [showDenMenu, setShowDenMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [contextRowId, setContextRowId] = useState<string | null>(null);
+  const [columnSticky, setColumnSticky] = useState<Record<string, 'left' | 'right' | null>>({});
 
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
+
+  // Compute fixed-left offset (rowNumber + selection always sticky-left)
+  const stickyLeftBase = (enableRowNumber ? 48 : 0) + (enableSelection ? 40 : 0);
+
+  function getColStickyAttr(colId: string): { className: string; style: React.CSSProperties } | null {
+    const pos = columnSticky[colId];
+    if (!pos) return null;
+    if (pos === 'left') return {
+      className: 'sticky z-10',
+      style: { left: stickyLeftBase },
+    };
+    return { className: 'sticky z-10', style: { right: 0 } };
+  }
 
   const table = useReactTable({
     data, columns: cols as ColumnDef<TData, unknown>[],
@@ -503,9 +517,10 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
+          const stickyAttr = getColStickyAttr(h.column.id);
           return (
-            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''}`}
-              onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ width: h.getSize() }} colSpan={h.colSpan}>
+            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''} ${stickyAttr ? 'bg-muted/50' : ''}`}
+              onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize() }} colSpan={h.colSpan}>
               <div className="flex items-center gap-1">
                 {flexRender(h.column.columnDef.header, h.getContext())}
                 {cs && <span className="shrink-0 text-muted-foreground/50">{h.column.getIsSorted() === 'asc' ? <ChevronUp size={14} /> : h.column.getIsSorted() === 'desc' ? <ChevronDown size={14} /> : <ChevronsUpDown size={14} />}</span>}
@@ -531,7 +546,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
-          return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''}`}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+          const stickyAttr = getColStickyAttr(cell.column.id);
+          return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${stickyAttr ? (row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass) : ''}`} style={stickyAttr?.style ?? {}}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
         })}
       </tr>
     );
@@ -577,22 +593,37 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
             )}
             {enableColumnVisibility && (
               <div className="relative">
-                <button className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
                 {showColMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border bg-card shadow-xl"
-                    ref={useRef<HTMLDivElement>(null).current ? undefined : undefined}>
-                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">Column Visibility</div>
+                  <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border bg-card shadow-xl">
+                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">Column Settings</div>
                     {cols.map((c, i) => {
                       const id = (c as any).accessorKey || (c as any).id || String(i);
                       const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
-                      if (id.startsWith('__')) return null; // skip internal columns
+                      if (id.startsWith('__')) return null;
                       const vis = colVis[id] !== false;
+                      const stickyPos = columnSticky[id] ?? null;
                       return (
-                        <button key={id} className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                          onClick={() => setColVis({ ...colVis, [id]: !vis })}>
-                          {vis ? <Eye size={14} /> : <EyeOff size={14} />} {hdr}
-                        </button>
+                        <div key={id} className="flex items-center gap-1 px-2 py-1 text-sm hover:bg-accent/30">
+                          <button className="shrink-0 rounded p-1 hover:bg-accent" title={vis ? 'Hide' : 'Show'}
+                            onClick={() => setColVis({ ...colVis, [id]: !vis })}>
+                            {vis ? <Eye size={14} /> : <EyeOff size={14} className="text-muted-foreground" />}
+                          </button>
+                          <span className={`flex-1 truncate text-xs ${vis ? '' : 'text-muted-foreground line-through'}`}>{hdr}</span>
+                          {vis && (
+                            <div className="flex items-center gap-0.5">
+                              <button className={`rounded p-0.5 ${stickyPos === 'left' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
+                                title="Pin left" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h6m0 0 3-3m-3 3 3 3"/><path d="M21 5v14"/></svg>
+                              </button>
+                              <button className={`rounded p-0.5 ${stickyPos === 'right' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
+                                title="Pin right" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12h-6m0 0 3-3m-3 3 3 3"/><path d="M3 5v14"/></svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -638,7 +669,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         )}
         {!isLoading && !error && data.length > 0 && (
           <table className="w-full border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()) }}>
-            <thead>{table.getHeaderGroups().map(renderHead)}</thead>
+            <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
             <tbody>{table.getRowModel().rows.map((row, idx) => renderRow(row, idx))}</tbody>
           </table>
         )}

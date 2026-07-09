@@ -259,14 +259,19 @@ export function AppDataGrid<TData extends { id?: string | number }>({
         </div>
 
         {/* Filter field selector */}
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Add filter</p>
-          <div className="flex flex-wrap gap-1">
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Add filter</p>
+          <div className="flex flex-wrap gap-1.5">
             {visibleFilterFields.filter(f => !activeFilters.find(af => af.field === f.id)).map(f => (
-              <button key={f.id} className="rounded border px-2 py-0.5 text-xs hover:bg-accent" onClick={() => addFilter(f)}>
-                {f.label}
+              <button key={f.id}
+                className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent hover:border-primary/40 transition-colors"
+                onClick={() => addFilter(f)}>
+                <span className="text-muted-foreground">+</span> {f.label}
               </button>
             ))}
+            {visibleFilterFields.every(f => activeFilters.find(af => af.field === f.id)) && (
+              <p className="text-xs text-muted-foreground italic">All filters added</p>
+            )}
           </div>
         </div>
 
