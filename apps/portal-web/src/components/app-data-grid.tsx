@@ -355,7 +355,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
       {renderFilterSidebar()}
 
       {/* Main area */}
-      <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
         {/* Table header: Title + Bulk Actions + Actions */}
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 mb-1 shrink-0">
           <div className="flex items-center gap-2">

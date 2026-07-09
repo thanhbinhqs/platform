@@ -649,7 +649,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       )}
 
       {/* ── Table Area ── */}
-      <div className="flex-1 min-h-0 overflow-auto isolate rounded-lg border bg-card">
+      <div className="flex-1 min-h-0 isolate rounded-lg border bg-card" style={{ overflow: 'auto', maxHeight: '100%' }}>
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />

@@ -71,7 +71,7 @@ export function RulesPage() {
   }), [page, pageSize, data?.total, handlePaginationChange]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col">
       <AppDataGrid
         columns={columns}
         data={data?.items || []}
