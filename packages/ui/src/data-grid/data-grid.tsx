@@ -513,7 +513,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     return (
       <tr key={hg.id} className="border-b bg-muted/50">
         {enableRowNumber && <th className={`${den.cell} ${den.font} sticky left-0 z-20 bg-muted/50 w-12 text-center text-muted-foreground`}>#</th>}
-        {enableSelection && <th className={`${den.cell} ${den.font} sticky left-0 z-20 bg-muted/50 w-10 text-center ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableSelection && <th className={`${den.cell} ${den.font} sticky z-20 bg-muted/50 w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -543,7 +543,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         onClick={() => onRowClick?.(row.original)}
         onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
         {enableRowNumber && <td className={`${den.cell} sticky left-0 z-10 w-12 text-center text-muted-foreground ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${den.font}`}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td className={`${den.cell} sticky left-0 z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${enableRowNumber ? 'left-12' : 'left-0'}`}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableSelection && <td className={`${den.cell} sticky z-10 w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass}`} style={{ left: enableRowNumber ? 48 : 0 }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
