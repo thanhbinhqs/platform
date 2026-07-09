@@ -84,6 +84,7 @@ export function RulesPage() {
         enableSorting
         enableExport
         enableColumnResize
+        enableColumnVisibility
         enableDensity
         pageSize={pageSize}
         pageSizeOptions={[10, 15, 20, 50, 100]}

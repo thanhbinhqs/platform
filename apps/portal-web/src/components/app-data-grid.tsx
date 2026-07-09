@@ -446,7 +446,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           enableSorting={enableSorting}
           enableColumnResize={enableColumnResize}
           enableExport={false}
-          enableColumnVisibility={false}
+          enableColumnVisibility={canShowColVis}
           enableDensity={false}
           density={denKey as 'compact' | 'standard' | 'comfortable'}
           onDensityChange={(key: 'compact' | 'standard' | 'comfortable') => setDenKey(key)}
