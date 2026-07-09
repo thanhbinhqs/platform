@@ -517,15 +517,15 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   function renderHead(hg: HeaderGroup<TData>) {
     return (
       <tr key={hg.id} className="border-b bg-muted/50">
-        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky bg-muted/50 w-12 text-center text-muted-foreground`} style={{ left: 0, zIndex: 20 }}>#</th>}
-        {enableSelection && <th className={`${den.cell} ${den.font} sticky bg-muted/50 w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky w-12 text-center text-muted-foreground`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)' }}>#</th>}
+        {enableSelection && <th className={`${den.cell} ${den.font} sticky w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20, backgroundColor: 'var(--color-muted)' }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
           const stickyAttr = getColStickyAttr(h.column.id);
           return (
             <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''} ${stickyAttr ? 'bg-muted/50' : ''}`}
-              onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize() }} colSpan={h.colSpan}>
+              onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize(), ...(stickyAttr ? { backgroundColor: 'var(--color-muted)' } : {}) }} colSpan={h.colSpan}>
               <div className="flex items-center gap-1">
                 {flexRender(h.column.columnDef.header, h.getContext())}
                 {cs && <span className="shrink-0 text-muted-foreground/50">{h.column.getIsSorted() === 'asc' ? <ChevronUp size={14} /> : h.column.getIsSorted() === 'desc' ? <ChevronDown size={14} /> : <ChevronsUpDown size={14} />}</span>}
@@ -547,12 +547,12 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         className={`border-b transition-colors ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass + ' hover:bg-accent/30'} ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
         onClick={() => onRowClick?.(row.original)}
         onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td className={`${den.cell} sticky w-12 text-center text-muted-foreground ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass} ${den.font}`} style={{ left: 0, zIndex: 10 }}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td className={`${den.cell} sticky w-10 text-center ${row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass}`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 10 }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableRowNumber && <td className={`${den.cell} sticky w-12 text-center text-muted-foreground ${den.font}`} style={{ left: 0, zIndex: 10, backgroundColor: row.getIsSelected() ? 'color-mix(in srgb, var(--color-primary) 5%, transparent)' : isCtxRow ? 'color-mix(in srgb, var(--color-accent) 60%, transparent)' : (isEven ? 'var(--color-card)' : 'var(--color-muted)') }}>{rowIdx + 1 + pageIndex * pSize}</td>}
+        {enableSelection && <td className={`${den.cell} sticky w-10 text-center`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 10, backgroundColor: row.getIsSelected() ? 'color-mix(in srgb, var(--color-primary) 5%, transparent)' : isCtxRow ? 'color-mix(in srgb, var(--color-accent) 60%, transparent)' : (isEven ? 'var(--color-card)' : 'var(--color-muted)') }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
-          return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${stickyAttr ? (row.getIsSelected() ? 'bg-primary/5' : isCtxRow ? 'bg-accent/60' : stripeClass) : ''}`} style={stickyAttr?.style ?? {}}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+          return <td key={cell.id} className={`${den.cell} ${den.font} ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''}`} style={{ ...(stickyAttr?.style ?? {}), ...(stickyAttr ? { backgroundColor: row.getIsSelected() ? 'color-mix(in srgb, var(--color-primary) 5%, transparent)' : isCtxRow ? 'color-mix(in srgb, var(--color-accent) 60%, transparent)' : (isEven ? 'var(--color-card)' : 'var(--color-muted)') } : {}) }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
         })}
       </tr>
     );

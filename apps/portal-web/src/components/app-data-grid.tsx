@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } fro
 import { DataGrid, type DataGridColumn } from '@platform/ui';
 import { usePermission, hasPermission } from '@platform/hooks';
 import { useAuthStore } from '@platform/hooks';
-import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pin, Pencil, Trash2, ExternalLink } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -402,8 +402,11 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                 <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
                   onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
                 {showColMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border bg-card shadow-xl">
-                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">Column Settings</div>
+                  <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border bg-card shadow-xl">
+                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <Columns size={13} /> Column Settings
+                    </div>
+                    <div className="max-h-72 overflow-y-auto py-1">
                     {columns.map((c, i) => {
                       const id = (c as any).accessorKey || (c as any).id || String(i);
                       const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
@@ -411,27 +414,37 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                       const vis = colVis[id] !== false;
                       const stickyPos = columnSticky[id] ?? null;
                       return (
-                        <div key={id} className="flex items-center gap-1 px-2 py-1 text-sm hover:bg-accent/30">
-                          <button className="shrink-0 rounded p-1 hover:bg-accent" title={vis ? 'Hide' : 'Show'}
+                        <div key={id} className="flex items-center gap-1.5 px-2 py-1.5 text-sm hover:bg-accent/30 group">
+                          <button className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors" title={vis ? 'Hide' : 'Show'}
                             onClick={() => setColVis({ ...colVis, [id]: !vis })}>
-                            {vis ? <Eye size={14} /> : <EyeOff size={14} className="text-muted-foreground" />}
+                            {vis ? <Eye size={13} /> : <EyeOff size={13} />}
                           </button>
-                          <span className={`flex-1 truncate text-xs ${vis ? '' : 'text-muted-foreground line-through'}`}>{hdr}</span>
+                          <span className={`flex-1 truncate text-xs ${vis ? 'text-foreground' : 'text-muted-foreground/40 line-through'}`}>{hdr}</span>
                           {vis && (
-                            <div className="flex items-center gap-0.5">
-                              <button className={`rounded p-0.5 ${stickyPos === 'left' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
-                                title="Pin left" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h6m0 0 3-3m-3 3 3 3"/><path d="M21 5v14"/></svg>
+                            <div className="flex items-center border rounded-md overflow-hidden shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                              <button
+                                className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                  ${stickyPos === 'left' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                title="Pin left — column stays fixed when scrolling horizontally"
+                                onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
+                                <Pin size={10} />
+                                <span>Left</span>
                               </button>
-                              <button className={`rounded p-0.5 ${stickyPos === 'right' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'}`}
-                                title="Pin right" onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12h-6m0 0 3-3m-3 3 3 3"/><path d="M3 5v14"/></svg>
+                              <div className="w-px h-4 bg-border shrink-0" />
+                              <button
+                                className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                  ${stickyPos === 'right' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                title="Pin right — column stays fixed when scrolling horizontally"
+                                onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
+                                <Pin size={10} className="rotate-90" />
+                                <span>Right</span>
                               </button>
                             </div>
                           )}
                         </div>
                       );
                     })}
+                    </div>
                   </div>
                 )}
               </div>
