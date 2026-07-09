@@ -27,11 +27,11 @@ export function RulesPage() {
   });
 
   const columns = useMemo(() => [
-    { accessorKey: 'name', header: 'Name', meta: { cellClass: 'max-w-[200px] truncate' } },
-    { accessorKey: 'event', header: 'Event' },
-    { accessorKey: 'status', header: 'Status', meta: { align: 'center' as const } },
-    { accessorKey: 'priority', header: 'Priority', meta: { align: 'center' as const } },
-    { accessorKey: 'createdAt', header: 'Created', cell: ({ getValue }: any) => new Date(getValue() as string).toLocaleDateString(), meta: { align: 'right' as const } },
+    { accessorKey: 'name', header: 'Name', size: 280, minSize: 180, meta: { cellClass: 'truncate' } },
+    { accessorKey: 'event', header: 'Event', size: 200, minSize: 140 },
+    { accessorKey: 'status', header: 'Status', size: 120, minSize: 90, meta: { align: 'center' as const } },
+    { accessorKey: 'priority', header: 'Priority', size: 120, minSize: 80, meta: { align: 'center' as const } },
+    { accessorKey: 'createdAt', header: 'Created', size: 160, minSize: 100, cell: ({ getValue }: any) => new Date(getValue() as string).toLocaleDateString(), meta: { align: 'right' as const } },
   ], []);
 
   const filterFields = useMemo(() => [
