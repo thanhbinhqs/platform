@@ -17,7 +17,7 @@ import {
   type Cell,
 } from '@tanstack/react-table';
 import {
-  useState, useMemo, useCallback, useRef, useEffect,
+  useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect,
   type ReactNode, type KeyboardEvent,
 } from 'react';
 import { ChevronDown, ChevronUp, ChevronsUpDown, Download,
@@ -434,8 +434,28 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
 
   const den = (DENSITY_MAP[denKey] ?? DENSITY_MAP.standard) as DensityConfig;
 
-  // Compute fixed-left offset (rowNumber + selection always sticky-left)
-  const stickyLeftBase = (enableRowNumber ? 48 : 0) + (enableSelection ? 40 : 0);
+  // ─── Dynamic Sticky Offsets ───────────────────────────────────────────
+  const systemWidthsRef = useRef({ hash: 48, selection: 40 });
+  const [, forceUpdate] = useState(0);
+
+  // Measure actual rendered widths of #/selection columns on every render
+  useLayoutEffect(() => {
+    const hashEl = document.querySelector<HTMLElement>('[data-sticky-id="row-number"]');
+    const selEl = document.querySelector<HTMLElement>('[data-sticky-id="selection"]');
+    if (hashEl || selEl) {
+      const hashW = hashEl?.offsetWidth ?? 48;
+      const selW = selEl?.offsetWidth ?? 40;
+      if (hashW !== systemWidthsRef.current.hash || selW !== systemWidthsRef.current.selection) {
+        systemWidthsRef.current = { hash: hashW, selection: selW };
+        forceUpdate(n => n + 1);
+      }
+    }
+  });
+
+  const hw = systemWidthsRef.current.hash;
+  const sw = systemWidthsRef.current.selection;
+  const selLeft = enableRowNumber ? hw : 0;
+  const stickyLeftBase = (enableRowNumber ? hw : 0) + (enableSelection ? sw : 0);
 
   function getColStickyAttr(colId: string): { className: string; style: React.CSSProperties } | null {
     const pos = columnSticky[colId];
@@ -517,8 +537,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   function renderHead(hg: HeaderGroup<TData>) {
     return (
       <tr key={hg.id} className="border-b" style={{ backgroundColor: 'var(--color-muted)' }}>
-        {enableRowNumber && <th className={`${den.cell} ${den.font} sticky text-center text-muted-foreground border-r border-b border-border`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
-        {enableSelection && <th className={`${den.cell} ${den.font} sticky text-center border-r border-b border-border`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableRowNumber && <th data-sticky-id="row-number" className={`${den.cell} ${den.font} sticky text-center text-muted-foreground border-r border-b border-border`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
+        {enableSelection && <th data-sticky-id="selection" className={`${den.cell} ${den.font} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -552,8 +572,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         style={{ backgroundColor: rowBg }}
         onClick={() => onRowClick?.(row.original)}
         onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td className={`${den.cell} sticky text-center text-muted-foreground ${den.font} border-r border-b border-border`} style={{ left: 0, zIndex: 10, minWidth: 48, width: 48, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td className={`${den.cell} sticky text-center border-r border-b border-border`} style={{ left: enableRowNumber ? 48 : 0, zIndex: 10, minWidth: 40, width: 40, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableRowNumber && <td data-sticky-id="row-number" className={`${den.cell} sticky text-center text-muted-foreground ${den.font} border-r border-b border-border`} style={{ left: 0, zIndex: 10, minWidth: 48, width: 48, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
+        {enableSelection && <td data-sticky-id="selection" className={`${den.cell} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 10, minWidth: 40, width: 40, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
