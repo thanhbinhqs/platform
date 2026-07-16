@@ -51,13 +51,6 @@ services:
         reservations:
           memory: 256M
 
-  admin-web:
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 128M
-
   portal-web:
     deploy:
       replicas: 2

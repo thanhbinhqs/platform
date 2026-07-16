@@ -76,12 +76,9 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/api.conf:/etc/nginx/conf.d/api.conf:ro
-      - ./nginx/admin.conf:/etc/nginx/conf.d/admin.conf:ro
       - ./nginx/portal.conf:/etc/nginx/conf.d/portal.conf:ro
     depends_on:
       api:
-        condition: service_started
-      admin-web:
         condition: service_started
       portal-web:
         condition: service_started
@@ -114,19 +111,6 @@ services:
   # ════════════════════════════════════════════════════════════
   # FRONTEND APPS
   # ════════════════════════════════════════════════════════════
-  admin-web:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.admin-web
-    container_name: platform-admin-web
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    depends_on:
-      - api
-    networks:
-      - platform-net
-
   portal-web:
     build:
       context: ..
