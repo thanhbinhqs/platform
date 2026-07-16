@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@platform/hooks';
 import { NotificationBell } from './notification-bell';
 import { ChevronDown, Menu, X, LogOut, User, Settings, Shield } from 'lucide-react';
+import { useAdminModules } from '../lib/admin-modules';
 
 interface MenuItem {
   label: string;
@@ -56,6 +57,7 @@ export function SiteHeader() {
   const userRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, clearAuth } = useAuthStore();
+  const { hasAnyAccess } = useAdminModules();
 
   // Close menus on outside click
   useEffect(() => {
@@ -118,6 +120,21 @@ export function SiteHeader() {
             )}
           </div>
         ))}
+
+        {/* ─── Admin button (JWT-gated) ─── */}
+        {hasAnyAccess && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-accent ${
+                isActive ? 'bg-primary/10 text-primary' : ''
+              }`
+            }
+          >
+            <Shield size={16} />
+            <span className="hidden lg:inline">Admin</span>
+          </NavLink>
+        )}
       </nav>
 
       {/* ─── Right Section: Auth / User ─── */}
@@ -195,6 +212,20 @@ export function SiteHeader() {
               )}
             </div>
           ))}
+          {/* ─── Admin mobile link (JWT-gated) ─── */}
+          {hasAnyAccess && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-accent ${
+                  isActive ? 'bg-primary/5 text-primary' : ''
+                }`
+              }
+              onClick={() => setMobileOpen(false)}
+            >
+              <Shield size={16} /> Admin
+            </NavLink>
+          )}
         </div>
       )}
     </header>
