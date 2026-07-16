@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, Toaster } from '@platform/ui';
 import { queryClient } from './lib/query-client';
@@ -8,9 +8,11 @@ import { LoginPage } from './pages/login';
 import { ForgotPasswordPage } from './pages/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password';
 import { DashboardLayout } from './layouts/dashboard-layout';
+import { AdminLayout } from './layouts/admin-layout';
 import { ProtectedRoute } from './components/protected-route';
 import { ErrorBoundary } from './components/error-boundary';
 import { NotFoundPage } from './pages/not-found';
+import { IntroPage } from './pages/intro/intro-page';
 
 // ─── Lazy-loaded pages (code-split) ──────────────────────────────
 const DashboardPage = lazy(() => import('./pages/dashboard').then(m => ({ default: m.DashboardPage })));
@@ -32,6 +34,8 @@ const ApiKeysPage = lazy(() => import('./pages/api-keys').then(m => ({ default: 
 const ProductsPage = lazy(() => import('./pages/products').then(m => ({ default: m.ProductsPage })));
 const OrdersPage = lazy(() => import('./pages/orders').then(m => ({ default: m.OrdersPage })));
 const InvoicesPage = lazy(() => import('./pages/invoices').then(m => ({ default: m.InvoicesPage })));
+const SpaceJourneyPage = lazy(() => import('./pages/intro/space-journey-page').then(m => ({ default: m.SpaceJourneyPage })));
+const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard'));
 
 function PageLoader() {
   return (
@@ -61,8 +65,25 @@ export function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/login" element={<LoginPage adminMode />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route
+              path="/intro"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <IntroPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/space-journey"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <SpaceJourneyPage />
+                </Suspense>
+              }
+            />
             <Route
               element={
                 <ProtectedRoute>
@@ -92,6 +113,16 @@ export function App() {
               <Route path="products" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
               <Route path="orders" element={<Suspense fallback={<PageLoader />}><OrdersPage /></Suspense>} />
               <Route path="invoices" element={<Suspense fallback={<PageLoader />}><InvoicesPage /></Suspense>} />
+            </Route>
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense>} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

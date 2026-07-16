@@ -4,7 +4,11 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '
 import { useAuthStore } from '@platform/hooks';
 import { authApi } from '@platform/api-client';
 
-export function LoginPage() {
+interface LoginPageProps {
+  adminMode?: boolean;
+}
+
+export function LoginPage({ adminMode = false }: LoginPageProps) {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState('admin@platform.local');
@@ -28,7 +32,7 @@ export function LoginPage() {
       const { data: meRes } = await authApi.me();
       setAuth(meRes.data, accessToken, refreshToken);
 
-      navigate('/', { replace: true });
+      navigate(adminMode ? '/admin' : '/', { replace: true });
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Login failed';
@@ -42,7 +46,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Platform Portal</CardTitle>
+          <CardTitle className="text-2xl">{adminMode ? 'Admin Console' : 'Platform Portal'}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to your account
           </p>
@@ -78,6 +82,11 @@ export function LoginPage() {
             <div className="text-center text-sm text-muted-foreground">
               <Link to="/forgot-password" className="hover:text-primary transition-colors">
                 Forgot password?
+              </Link>
+            </div>
+            <div className="mt-4 text-center">
+              <Link to="/intro" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                Về hệ thống NC MEMS
               </Link>
             </div>
           </form>
