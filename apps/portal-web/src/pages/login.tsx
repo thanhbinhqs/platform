@@ -4,11 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '
 import { useAuthStore } from '@platform/hooks';
 import { authApi } from '@platform/api-client';
 
-interface LoginPageProps {
-  adminMode?: boolean;
-}
-
-export function LoginPage({ adminMode = false }: LoginPageProps) {
+export function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState('admin@platform.local');
@@ -32,7 +28,7 @@ export function LoginPage({ adminMode = false }: LoginPageProps) {
       const { data: meRes } = await authApi.me();
       setAuth(meRes.data, accessToken, refreshToken);
 
-      navigate(adminMode ? '/admin' : '/', { replace: true });
+      navigate('/', { replace: true });
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Login failed';
@@ -46,7 +42,7 @@ export function LoginPage({ adminMode = false }: LoginPageProps) {
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{adminMode ? 'Admin Console' : 'Platform Portal'}</CardTitle>
+          <CardTitle className="text-2xl">Platform Portal</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to your account
           </p>
