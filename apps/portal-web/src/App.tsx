@@ -9,8 +9,10 @@ import { ForgotPasswordPage } from './pages/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password';
 import { DashboardLayout } from './layouts/dashboard-layout';
 import { ProtectedRoute } from './components/protected-route';
+import { RequirePermission } from './components/require-permission';
 import { ErrorBoundary } from './components/error-boundary';
 import { NotFoundPage } from './pages/not-found';
+import { ForbiddenPage } from './pages/forbidden';
 import { IntroPage } from './pages/intro/intro-page';
 
 // ─── Lazy-loaded pages (code-split) ──────────────────────────────
@@ -43,6 +45,11 @@ function PageLoader() {
   );
 }
 
+/** Wrap a lazy-loaded page with Suspense + optional permission gate. */
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
+
 export function App() {
   const initialize = useAuthStore((s) => s.initialize);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -62,6 +69,7 @@ export function App() {
       <ThemeProvider defaultTheme="light" storageKey="portal-theme">
         <BrowserRouter>
           <Routes>
+            {/* ── Public routes ──────────────────────────────────── */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -81,6 +89,9 @@ export function App() {
                 </Suspense>
               }
             />
+            <Route path="/forbidden" element={<ForbiddenPage />} />
+
+            {/* ── Protected routes (auth required) ──────────────── */}
             <Route
               element={
                 <ProtectedRoute>
@@ -90,27 +101,32 @@ export function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>} />
-              <Route path="users" element={<Suspense fallback={<PageLoader />}><UsersPage /></Suspense>} />
-              <Route path="users/:id" element={<Suspense fallback={<PageLoader />}><UsersPage /></Suspense>} />
-              <Route path="roles" element={<Suspense fallback={<PageLoader />}><RolesPage /></Suspense>} />
-              <Route path="settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
-              <Route path="audit-logs" element={<Suspense fallback={<PageLoader />}><AuditLogsPage /></Suspense>} />
-              <Route path="workflows" element={<Suspense fallback={<PageLoader />}><WorkflowsPage /></Suspense>} />
-              <Route path="webhooks" element={<Suspense fallback={<PageLoader />}><WebhooksPage /></Suspense>} />
-              <Route path="rules" element={<Suspense fallback={<PageLoader />}><RulesPage /></Suspense>} />
-              <Route path="tenants" element={<Suspense fallback={<PageLoader />}><TenantsPage /></Suspense>} />
-              <Route path="scheduled-jobs" element={<Suspense fallback={<PageLoader />}><ScheduledJobsPage /></Suspense>} />
-              <Route path="integrations" element={<Suspense fallback={<PageLoader />}><IntegrationsPage /></Suspense>} />
-              <Route path="notifications" element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
-              <Route path="feature-flags" element={<Suspense fallback={<PageLoader />}><FeatureFlagsPage /></Suspense>} />
-              <Route path="storage" element={<Suspense fallback={<PageLoader />}><StoragePage /></Suspense>} />
-              <Route path="api-keys" element={<Suspense fallback={<PageLoader />}><ApiKeysPage /></Suspense>} />
-              <Route path="data-grid-demo" element={<Suspense fallback={<PageLoader />}><DataGridDemoPage /></Suspense>} />
-              <Route path="products" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
-              <Route path="orders" element={<Suspense fallback={<PageLoader />}><OrdersPage /></Suspense>} />
-              <Route path="invoices" element={<Suspense fallback={<PageLoader />}><InvoicesPage /></Suspense>} />
+              <Route index element={<LazyPage><DashboardPage /></LazyPage>} />
+              {/* Open to all authenticated users */}
+              <Route path="data-grid-demo" element={<LazyPage><DataGridDemoPage /></LazyPage>} />
+
+              {/* Permission-gated admin routes */}
+              <Route path="users" element={<RequirePermission resource="users"><LazyPage><UsersPage /></LazyPage></RequirePermission>} />
+              <Route path="users/:id" element={<RequirePermission resource="users"><LazyPage><UsersPage /></LazyPage></RequirePermission>} />
+              <Route path="roles" element={<RequirePermission resource="roles"><LazyPage><RolesPage /></LazyPage></RequirePermission>} />
+              <Route path="tenants" element={<RequirePermission resource="tenants"><LazyPage><TenantsPage /></LazyPage></RequirePermission>} />
+              <Route path="audit-logs" element={<RequirePermission resource="audit-logs"><LazyPage><AuditLogsPage /></LazyPage></RequirePermission>} />
+              <Route path="products" element={<RequirePermission resource="products"><LazyPage><ProductsPage /></LazyPage></RequirePermission>} />
+              <Route path="orders" element={<RequirePermission resource="orders"><LazyPage><OrdersPage /></LazyPage></RequirePermission>} />
+              <Route path="invoices" element={<RequirePermission resource="invoices"><LazyPage><InvoicesPage /></LazyPage></RequirePermission>} />
+              <Route path="workflows" element={<RequirePermission resource="workflows"><LazyPage><WorkflowsPage /></LazyPage></RequirePermission>} />
+              <Route path="rules" element={<RequirePermission resource="rules"><LazyPage><RulesPage /></LazyPage></RequirePermission>} />
+              <Route path="webhooks" element={<RequirePermission resource="webhooks"><LazyPage><WebhooksPage /></LazyPage></RequirePermission>} />
+              <Route path="scheduled-jobs" element={<RequirePermission resource="scheduled-jobs"><LazyPage><ScheduledJobsPage /></LazyPage></RequirePermission>} />
+              <Route path="integrations" element={<RequirePermission resource="integrations"><LazyPage><IntegrationsPage /></LazyPage></RequirePermission>} />
+              <Route path="feature-flags" element={<RequirePermission resource="feature-flags"><LazyPage><FeatureFlagsPage /></LazyPage></RequirePermission>} />
+              <Route path="api-keys" element={<RequirePermission resource="api-keys"><LazyPage><ApiKeysPage /></LazyPage></RequirePermission>} />
+              <Route path="storage" element={<RequirePermission resource="storage"><LazyPage><StoragePage /></LazyPage></RequirePermission>} />
+              <Route path="settings" element={<RequirePermission resource="settings"><LazyPage><SettingsPage /></LazyPage></RequirePermission>} />
+              <Route path="notifications" element={<RequirePermission resource="notifications"><LazyPage><NotificationsPage /></LazyPage></RequirePermission>} />
             </Route>
+
+            {/* ── Catch-all 404 ──────────────────────────────────── */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
