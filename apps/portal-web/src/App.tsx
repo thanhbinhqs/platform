@@ -8,7 +8,6 @@ import { LoginPage } from './pages/login';
 import { ForgotPasswordPage } from './pages/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password';
 import { DashboardLayout } from './layouts/dashboard-layout';
-import { AdminLayout } from './layouts/admin-layout';
 import { ProtectedRoute } from './components/protected-route';
 import { ErrorBoundary } from './components/error-boundary';
 import { NotFoundPage } from './pages/not-found';
@@ -35,7 +34,6 @@ const ProductsPage = lazy(() => import('./pages/products').then(m => ({ default:
 const OrdersPage = lazy(() => import('./pages/orders').then(m => ({ default: m.OrdersPage })));
 const InvoicesPage = lazy(() => import('./pages/invoices').then(m => ({ default: m.InvoicesPage })));
 const SpaceJourneyPage = lazy(() => import('./pages/intro/space-journey-page').then(m => ({ default: m.SpaceJourneyPage })));
-const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard'));
 
 function PageLoader() {
   return (
@@ -112,16 +110,6 @@ export function App() {
               <Route path="products" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
               <Route path="orders" element={<Suspense fallback={<PageLoader />}><OrdersPage /></Suspense>} />
               <Route path="invoices" element={<Suspense fallback={<PageLoader />}><InvoicesPage /></Suspense>} />
-            </Route>
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense>} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

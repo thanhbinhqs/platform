@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@platform/hooks';
 import { NotificationBell } from './notification-bell';
 import { ChevronDown, Menu, X, LogOut, User, Settings, Shield } from 'lucide-react';
-import { useAdminModules } from '../lib/admin-modules';
+import { hasModuleAccess } from '../lib/admin-modules';
 
 interface MenuItem {
   label: string;
   href?: string;
   icon?: string;
+  resource?: string;
   children?: MenuItem[];
 }
 
@@ -16,34 +17,34 @@ const menuItems: MenuItem[] = [
   { label: 'Dashboard', href: '/', icon: '◻' },
   {
     label: 'System', icon: '⚙', children: [
-      { label: 'Users', href: '/users', icon: '👥' },
-      { label: 'Roles', href: '/roles', icon: '🔐' },
-      { label: 'Tenants', href: '/tenants', icon: '🏢' },
-      { label: 'Audit Logs', href: '/audit-logs', icon: '📋' },
+      { label: 'Users', href: '/users', icon: '👥', resource: 'users' },
+      { label: 'Roles', href: '/roles', icon: '🔐', resource: 'roles' },
+      { label: 'Tenants', href: '/tenants', icon: '🏢', resource: 'tenants' },
+      { label: 'Audit Logs', href: '/audit-logs', icon: '📋', resource: 'audit-logs' },
     ],
   },
   {
     label: 'Business', icon: '🏭', children: [
-      { label: 'Products', href: '/products', icon: '📦' },
-      { label: 'Orders', href: '/orders', icon: '🛒' },
-      { label: 'Invoices', href: '/invoices', icon: '🧾' },
-      { label: 'Workflows', href: '/workflows', icon: '⚡' },
+      { label: 'Products', href: '/products', icon: '📦', resource: 'products' },
+      { label: 'Orders', href: '/orders', icon: '🛒', resource: 'orders' },
+      { label: 'Invoices', href: '/invoices', icon: '🧾', resource: 'invoices' },
+      { label: 'Workflows', href: '/workflows', icon: '⚡', resource: 'workflows' },
     ],
   },
   {
     label: 'Automation', icon: '🤖', children: [
-      { label: 'Rules', href: '/rules', icon: '⚖️' },
-      { label: 'Webhooks', href: '/webhooks', icon: '🔗' },
-      { label: 'Scheduled Jobs', href: '/scheduled-jobs', icon: '⏰' },
-      { label: 'Integrations', href: '/integrations', icon: '🔌' },
+      { label: 'Rules', href: '/rules', icon: '⚖️', resource: 'rules' },
+      { label: 'Webhooks', href: '/webhooks', icon: '🔗', resource: 'webhooks' },
+      { label: 'Scheduled Jobs', href: '/scheduled-jobs', icon: '⏰', resource: 'scheduled-jobs' },
+      { label: 'Integrations', href: '/integrations', icon: '🔌', resource: 'integrations' },
     ],
   },
   {
     label: 'Settings', icon: '🔧', children: [
-      { label: 'Feature Flags', href: '/feature-flags', icon: '🚩' },
-      { label: 'API Keys', href: '/api-keys', icon: '🔑' },
-      { label: 'Storage', href: '/storage', icon: '💾' },
-      { label: 'All Settings', href: '/settings', icon: '⚙' },
+      { label: 'Feature Flags', href: '/feature-flags', icon: '🚩', resource: 'feature-flags' },
+      { label: 'API Keys', href: '/api-keys', icon: '🔑', resource: 'api-keys' },
+      { label: 'Storage', href: '/storage', icon: '💾', resource: 'storage' },
+      { label: 'All Settings', href: '/settings', icon: '⚙', resource: 'settings' },
     ],
   },
   { label: 'Grid Demo', href: '/data-grid-demo', icon: '📊' },
@@ -57,7 +58,22 @@ export function SiteHeader() {
   const userRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, clearAuth } = useAuthStore();
-  const { hasAnyAccess } = useAdminModules();
+  const permissions = user?.permissions ?? [];
+
+  const visibleMenuItems = useMemo(() => {
+    return menuItems
+      .map((item) => {
+        if (item.children) {
+          const visibleChildren = item.children.filter(
+            (child) => !child.resource || hasModuleAccess(permissions, child.resource),
+          );
+          return { ...item, children: visibleChildren };
+        }
+        if (item.resource && !hasModuleAccess(permissions, item.resource)) return null;
+        return item;
+      })
+      .filter(Boolean) as MenuItem[];
+  }, [permissions]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -83,7 +99,7 @@ export function SiteHeader() {
 
       {/* ─── Desktop Navigation ─── */}
       <nav className="hidden md:flex items-center gap-0.5 flex-1">
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <div key={item.label} className="relative">
             {item.children ? (
               <button
@@ -121,20 +137,6 @@ export function SiteHeader() {
           </div>
         ))}
 
-        {/* ─── Admin button (JWT-gated) ─── */}
-        {hasAnyAccess && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-accent ${
-                isActive ? 'bg-primary/10 text-primary' : ''
-              }`
-            }
-          >
-            <Shield size={16} />
-            <span className="hidden lg:inline">Admin</span>
-          </NavLink>
-        )}
       </nav>
 
       {/* ─── Right Section: Auth / User ─── */}
@@ -188,7 +190,7 @@ export function SiteHeader() {
       {/* ─── Mobile Menu ─── */}
       {mobileOpen && (
         <div className="absolute left-0 right-0 top-full border-b bg-card shadow-xl md:hidden max-h-[80vh] overflow-y-auto z-50">
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <div key={item.label}>
               {item.children ? (
                 <div>
@@ -212,20 +214,6 @@ export function SiteHeader() {
               )}
             </div>
           ))}
-          {/* ─── Admin mobile link (JWT-gated) ─── */}
-          {hasAnyAccess && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-accent ${
-                  isActive ? 'bg-primary/5 text-primary' : ''
-                }`
-              }
-              onClick={() => setMobileOpen(false)}
-            >
-              <Shield size={16} /> Admin
-            </NavLink>
-          )}
         </div>
       )}
     </header>
