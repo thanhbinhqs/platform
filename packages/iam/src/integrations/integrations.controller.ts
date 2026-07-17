@@ -9,7 +9,9 @@ import { PrismaService } from '@platform/platform-core';
 @Controller('integrations')
 export class IntegrationsController {
   constructor(private readonly prisma: PrismaService) {}
-  @Get() @ApiOperation({ summary: 'List integrations' })
+  @Get()
+  @Permissions('read:integrations')
+  @ApiOperation({ summary: 'List integrations' })
   async findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> { const pg = Math.max(1, Number(page) || 1);
     const ps = Math.min(100, Math.max(1, Number(limit) || 20));
     const sk = (pg - 1) * ps;

@@ -14,6 +14,7 @@ export class SalesController {
 
   // ─── Categories ───
   @Get('categories')
+  @Permissions('read:products')
   @ApiOperation({ summary: 'List product categories' })
   async findAllCategories() { return this.sales.findAllCategories(); }
 
@@ -35,6 +36,7 @@ export class SalesController {
 
   // ─── Products ───
   @Get('products')
+  @Permissions('read:products')
   @ApiOperation({ summary: 'List products (paginated)' })
   async findAllProducts(
     @Query('categoryId') cat?: string, @Query('status') status?: string,
@@ -42,6 +44,7 @@ export class SalesController {
   ) { return this.sales.findAllProducts({ categoryId: cat, status, search, page, limit }); }
 
   @Get('products/:id')
+  @Permissions('read:products')
   @ApiOperation({ summary: 'Get product detail' })
   async findProduct(@Param('id') id: string) { return this.sales.findProduct(id); }
 
@@ -62,36 +65,43 @@ export class SalesController {
 
   // ─── Orders ───
   @Get('orders')
+  @Permissions('read:orders')
   @ApiOperation({ summary: 'List orders (paginated)' })
   async findAllOrders(@Query('status') status?: string, @Query('page') page?: number, @Query('limit') limit?: number) {
     return this.sales.findAllOrders({ status, page, limit });
   }
 
   @Get('orders/:id')
+  @Permissions('read:orders')
   @ApiOperation({ summary: 'Get order detail with items & invoice' })
   async findOrder(@Param('id') id: string) { return this.sales.findOrder(id); }
 
   @Post('orders')
+  @Permissions('manage:orders')
   @ApiOperation({ summary: 'Create order (with items, auto-calculates totals, reserves stock)' })
   async createOrder(@Body() b: any, @CurrentUser() u: AuthenticatedUser) { return this.sales.createOrder(b, u.id); }
 
   @Put('orders/:id/status')
+  @Permissions('manage:orders')
   @ApiOperation({ summary: 'Update order status (auto-creates invoice on confirm)' })
   async updateOrderStatus(@Param('id') id: string, @Body() b: { status: string }) { return this.sales.updateOrderStatus(id, b.status); }
 
   // ─── Invoices ───
   @Get('invoices')
+  @Permissions('read:invoices')
   @ApiOperation({ summary: 'List invoices (paginated)' })
   async findAllInvoices(@Query('status') status?: string, @Query('page') page?: number, @Query('limit') limit?: number) {
     return this.sales.findAllInvoices({ status, page, limit });
   }
 
   @Get('invoices/:id')
+  @Permissions('read:invoices')
   @ApiOperation({ summary: 'Get invoice with payments' })
   async findInvoice(@Param('id') id: string) { return this.sales.findInvoice(id); }
 
   // ─── Payments ───
   @Post('payments')
+  @Permissions('manage:invoices')
   @ApiOperation({ summary: 'Record payment against invoice (auto-updates invoice status)' })
   async recordPayment(@Body() b: any) { return this.sales.recordPayment(b); }
 }

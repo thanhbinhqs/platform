@@ -12,6 +12,7 @@ export class FeatureFlagsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @Permissions('read:feature-flags')
   @ApiOperation({ summary: 'List all feature flags' })
   async findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
     const pg = Math.max(1, Number(page) || 1);

@@ -9,7 +9,8 @@ import { PrismaService } from '@platform/platform-core';
 @Controller('rules')
 export class RulesController {
   constructor(private readonly prisma: PrismaService) {}
-  @Get() @ApiOperation({ summary: 'List rules' })
+  @Get() @Permissions('read:rules')
+  @ApiOperation({ summary: 'List rules' })
   async findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string): Promise<any> {
     const pg = Math.max(1, Number(page) || 1); const ps = Math.min(100, Math.max(1, Number(limit) || 20)); const sk = (pg - 1) * ps; const wh: any = {}; if (search) wh.OR = [{ name: { contains: search, mode: 'insensitive' } }]; const ob: any = sortField ? { [sortField]: (sortDir || 'asc') as any } : { createdAt: 'desc' }; const [data, total] = await Promise.all([this.prisma.client.rule.findMany({ where: wh, skip: sk, take: ps, orderBy: ob, include: { _count: { select: { executions: true } } } }), this.prisma.client.rule.count({ where: wh })]); return { data, total, page: pg, pageSize: ps, totalPages: Math.ceil(total / ps) };
   }

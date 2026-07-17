@@ -47,7 +47,7 @@ async function main() {
     { action: 'manage', resource: 'roles' },
     { action: 'read', resource: 'roles' },
     { action: 'create', resource: 'roles' },
-    { action: 'update', resource: 'roles' },
+    { action: 'update', 'resource': 'roles' },
     { action: 'delete', resource: 'roles' },
     { action: 'manage', resource: 'tenants' },
     { action: 'manage', resource: 'settings' },
@@ -57,6 +57,21 @@ async function main() {
     { action: 'manage', resource: 'workflows' },
     { action: 'read', resource: 'workflows' },
     { action: 'execute', resource: 'workflows' },
+    // Automation module — read
+    { action: 'read', resource: 'rules' },
+    { action: 'read', resource: 'webhooks' },
+    { action: 'read', resource: 'scheduled-jobs' },
+    { action: 'read', resource: 'integrations' },
+    { action: 'read', resource: 'feature-flags' },
+    // Sales module
+    { action: 'read', resource: 'products' },
+    { action: 'read', resource: 'orders' },
+    { action: 'read', resource: 'invoices' },
+    { action: 'manage', resource: 'orders' },
+    { action: 'manage', resource: 'invoices' },
+    // Storage
+    { action: 'read', resource: 'storage' },
+    { action: 'manage', resource: 'storage' },
   ];
 
   const permissions: { id: string; action: string; resource: string }[] = [];
@@ -71,6 +86,15 @@ async function main() {
   console.log(`  ✓ ${permissions.length} permissions`);
 
   // ── Roles ───────────────────────────────────────────────
+  // Helper: sync all permissions to a role (replaces existing assignments)
+  async function syncRolePermissions(roleId: string): Promise<void> {
+    await prisma.rolePermission.deleteMany({ where: { roleId } });
+    await prisma.rolePermission.createMany({
+      data: permissions.map((p) => ({ roleId, permissionId: p.id })),
+      skipDuplicates: false,
+    });
+  }
+
   const superAdminRole = await prisma.role.upsert({
     where: {
       tenantId_name: { tenantId: systemTenant.id, name: 'super_admin' },
@@ -82,14 +106,10 @@ async function main() {
       description: 'Full system access across all tenants',
       type: 'SYSTEM',
       isSystem: true,
-      permissions: {
-        create: permissions.map((p) => ({
-          permission: { connect: { id: p.id } },
-        })),
-      },
     },
   });
-  console.log(`  ✓ Role: ${superAdminRole.name}`);
+  await syncRolePermissions(superAdminRole.id);
+  console.log(`  ✓ Role: ${superAdminRole.name} (${permissions.length} permissions)`);
 
   const adminRole = await prisma.role.upsert({
     where: {
@@ -102,21 +122,28 @@ async function main() {
       description: 'Tenant administrator',
       type: 'SYSTEM',
       isSystem: true,
-      permissions: {
-        create: permissions
-          .filter(
-            (p) =>
-              !p.action.startsWith('manage:system') &&
-              p.resource !== 'system' &&
-              p.resource !== 'settings',
-          )
-          .map((p) => ({
-            permission: { connect: { id: p.id } },
-          })),
-      },
     },
   });
-  console.log(`  ✓ Role: ${adminRole.name}`);
+
+  // Admin role gets all permissions except system-level ones
+  const adminPermIds = permissions
+    .filter(
+      (p) =>
+        !p.action.startsWith('manage:system') &&
+        p.resource !== 'system' &&
+        p.resource !== 'settings',
+    )
+    .map((p) => p.id);
+
+  await prisma.rolePermission.deleteMany({ where: { roleId: adminRole.id } });
+  await prisma.rolePermission.createMany({
+    data: adminPermIds.map((permissionId) => ({
+      roleId: adminRole.id,
+      permissionId,
+    })),
+    skipDuplicates: false,
+  });
+  console.log(`  ✓ Role: ${adminRole.name} (${adminPermIds.length} permissions)`);
 
   const userRole = await prisma.role.upsert({
     where: {
@@ -129,16 +156,22 @@ async function main() {
       description: 'Regular platform user',
       type: 'CUSTOM',
       isSystem: false,
-      permissions: {
-        create: permissions
-          .filter((p) => p.resource === 'workflows' && p.action === 'read')
-          .map((p) => ({
-            permission: { connect: { id: p.id } },
-          })),
-      },
     },
   });
-  console.log(`  ✓ Role: ${userRole.name}`);
+
+  const userPermIds = permissions
+    .filter((p) => p.resource === 'workflows' && p.action === 'read')
+    .map((p) => p.id);
+
+  await prisma.rolePermission.deleteMany({ where: { roleId: userRole.id } });
+  await prisma.rolePermission.createMany({
+    data: userPermIds.map((permissionId) => ({
+      roleId: userRole.id,
+      permissionId,
+    })),
+    skipDuplicates: false,
+  });
+  console.log(`  ✓ Role: ${userRole.name} (${userPermIds.length} permissions)`);
 
   // ── Admin User ──────────────────────────────────────────
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
