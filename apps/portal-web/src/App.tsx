@@ -35,6 +35,7 @@ const ApiKeysPage = lazy(() => import('./pages/api-keys').then(m => ({ default: 
 const ProductsPage = lazy(() => import('./pages/products').then(m => ({ default: m.ProductsPage })));
 const OrdersPage = lazy(() => import('./pages/orders').then(m => ({ default: m.OrdersPage })));
 const InvoicesPage = lazy(() => import('./pages/invoices').then(m => ({ default: m.InvoicesPage })));
+const DelegationsPage = lazy(() => import('./pages/delegations').then(m => ({ default: m.DelegationsPage })));
 const SpaceJourneyPage = lazy(() => import('./pages/intro/space-journey-page').then(m => ({ default: m.SpaceJourneyPage })));
 
 function PageLoader() {
@@ -120,10 +121,12 @@ export function App() {
               <Route path="scheduled-jobs" element={<RequirePermission resource="scheduled-jobs"><LazyPage><ScheduledJobsPage /></LazyPage></RequirePermission>} />
               <Route path="integrations" element={<RequirePermission resource="integrations"><LazyPage><IntegrationsPage /></LazyPage></RequirePermission>} />
               <Route path="feature-flags" element={<RequirePermission resource="feature-flags"><LazyPage><FeatureFlagsPage /></LazyPage></RequirePermission>} />
-              <Route path="api-keys" element={<RequirePermission resource="api-keys"><LazyPage><ApiKeysPage /></LazyPage></RequirePermission>} />
+              <Route path="api-keys" element={<LazyPage><ApiKeysPage /></LazyPage>} />
               <Route path="storage" element={<RequirePermission resource="storage"><LazyPage><StoragePage /></LazyPage></RequirePermission>} />
               <Route path="settings" element={<RequirePermission resource="settings"><LazyPage><SettingsPage /></LazyPage></RequirePermission>} />
-              <Route path="notifications" element={<RequirePermission resource="notifications"><LazyPage><NotificationsPage /></LazyPage></RequirePermission>} />
+              <Route path="notifications" element={<LazyPage><NotificationsPage /></LazyPage>} />
+              {/* User-specific pages (no extra permission gate) */}
+              <Route path="delegations" element={<LazyPage><DelegationsPage /></LazyPage>} />
             </Route>
 
             {/* ── Catch-all 404 ──────────────────────────────────── */}

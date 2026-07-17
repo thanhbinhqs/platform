@@ -72,6 +72,9 @@ async function main() {
     // Storage
     { action: 'read', resource: 'storage' },
     { action: 'manage', resource: 'storage' },
+    // User-owned resources (menu visibility)
+    { action: 'read', resource: 'api-keys' },
+    { action: 'read', resource: 'notifications' },
   ];
 
   const permissions: { id: string; action: string; resource: string }[] = [];
