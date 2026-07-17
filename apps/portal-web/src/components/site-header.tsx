@@ -67,6 +67,7 @@ export function SiteHeader() {
           const visibleChildren = item.children.filter(
             (child) => !child.resource || hasModuleAccess(permissions, child.resource),
           );
+          if (visibleChildren.length === 0) return null;
           return { ...item, children: visibleChildren };
         }
         if (item.resource && !hasModuleAccess(permissions, item.resource)) return null;
