@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from '@platform/platform-core';
 import { Permissions } from '@platform/platform-kernel';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Scheduled Jobs')
 @ApiBearerAuth('access-token')
@@ -42,5 +43,12 @@ export class ScheduledJobsController {
     const job = await this.prisma.client.scheduledJob.findUnique({ where: { id: b.jobId } });
     if (!job) throw new Error('Job not found');
     return this.prisma.client.jobExecution.create({ data: { jobId: b.jobId, status: 'PENDING' as any, startedAt: new Date() } });
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk delete scheduled jobs' })
+  async bulkRemove(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.scheduledJob.deleteMany({ where: { id: { in: dto.ids } } } as any);
   }
 }

@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } fro
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from '@platform/platform-core';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 import { Permissions } from '@platform/platform-kernel';
 
 @ApiTags('Tenants')
@@ -54,5 +55,12 @@ export class TenantsController {
   @ApiOperation({ summary: 'Suspend tenant' })
   async remove(@Param('id') id: string): Promise<any> {
     return this.prisma.client.tenant.update({ where: { id }, data: { status: 'SUSPENDED' } });
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:tenants')
+  @ApiOperation({ summary: 'Bulk suspend tenants' })
+  async bulkRemove(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.tenant.updateMany({ where: { id: { in: dto.ids } }, data: { status: 'SUSPENDED' } });
   }
 }

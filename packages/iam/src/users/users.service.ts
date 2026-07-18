@@ -161,6 +161,34 @@ export class UsersService {
     return { deleted: true, id };
   }
 
+  async bulkRemove(ids: string[]) {
+    const users = await this.prisma.client.user.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+    });
+    if (!users.length) return { deleted: 0 };
+    await this.prisma.client.user.updateMany({
+      where: { id: { in: ids } },
+      data: { deletedAt: new Date() } as any,
+    });
+    return { deleted: ids.length };
+  }
+
+  async bulkActivate(ids: string[]) {
+    await this.prisma.client.user.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'ACTIVE' } as any,
+    });
+    return { updated: ids.length };
+  }
+
+  async bulkDeactivate(ids: string[]) {
+    await this.prisma.client.user.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'INACTIVE' } as any,
+    });
+    return { updated: ids.length };
+  }
+
   /** Normalise pivot structure into flat roles array */
   private formatUser(user: Record<string, any>) {
     return {

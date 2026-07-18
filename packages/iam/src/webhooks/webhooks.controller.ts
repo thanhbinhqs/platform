@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
 import { PrismaService } from '@platform/platform-core';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Webhooks')
 @ApiBearerAuth('access-token')
@@ -48,6 +49,13 @@ export class WebhooksController {
   @ApiOperation({ summary: 'Delete webhook' })
   async remove(@Param('id') id: string): Promise<any> {
     return this.prisma.client.webhook.delete({ where: { id } } as any);
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk delete webhooks' })
+  async bulkRemove(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.webhook.deleteMany({ where: { id: { in: dto.ids } } } as any);
   }
 
   @Get('deliveries')

@@ -14,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -55,5 +56,26 @@ export class UsersController {
   @ApiOperation({ summary: 'Delete user (soft)' })
   async remove(@Param('id') id: string) {
     return this.usersService.remove(id);
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:users')
+  @ApiOperation({ summary: 'Bulk soft-delete users' })
+  async bulkRemove(@Body() dto: BulkIdsDto) {
+    return this.usersService.bulkRemove(dto.ids);
+  }
+
+  @Post('bulk/activate')
+  @Permissions('manage:users')
+  @ApiOperation({ summary: 'Bulk activate users' })
+  async bulkActivate(@Body() dto: BulkIdsDto) {
+    return this.usersService.bulkActivate(dto.ids);
+  }
+
+  @Post('bulk/deactivate')
+  @Permissions('manage:users')
+  @ApiOperation({ summary: 'Bulk deactivate users' })
+  async bulkDeactivate(@Body() dto: BulkIdsDto) {
+    return this.usersService.bulkDeactivate(dto.ids);
   }
 }

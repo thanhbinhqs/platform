@@ -162,4 +162,28 @@ export class SalesService {
     this.logger.log(`Payment of ${data.amount} recorded for invoice ${invoice.invoiceNumber}`);
     return payment;
   }
+
+  async bulkDeleteProducts(ids: string[]) {
+    const result = await this.prisma.client.product.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'ARCHIVED' },
+    } as any);
+    return { deleted: result.count };
+  }
+
+  async bulkCancelOrders(ids: string[]) {
+    const result = await this.prisma.client.order.updateMany({
+      where: { id: { in: ids }, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+      data: { status: 'CANCELLED' },
+    } as any);
+    return { cancelled: result.count };
+  }
+
+  async bulkCancelInvoices(ids: string[]) {
+    const result = await this.prisma.client.invoice.updateMany({
+      where: { id: { in: ids }, status: { notIn: ['PAID', 'CANCELLED'] } },
+      data: { status: 'CANCELLED' },
+    } as any);
+    return { cancelled: result.count };
+  }
 }

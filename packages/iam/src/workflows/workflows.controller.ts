@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions, CurrentUser } from '@platform/platform-kernel';
 import { PrismaService } from '@platform/platform-core';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 import type { AuthenticatedUser } from '../common';
 
 @ApiTags('Workflows')
@@ -64,6 +65,26 @@ export class WorkflowsController {
   @ApiOperation({ summary: 'Archive workflow' })
   async remove(@Param('id') id: string): Promise<any> {
     return this.prisma.client.workflowDefinition.update({ where: { id }, data: { status: 'ARCHIVED', deletedAt: new Date() } } as any);
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:workflows')
+  @ApiOperation({ summary: 'Bulk archive workflows' })
+  async bulkRemove(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.workflowDefinition.updateMany({
+      where: { id: { in: dto.ids } },
+      data: { status: 'ARCHIVED', deletedAt: new Date() },
+    } as any);
+  }
+
+  @Post('bulk/publish')
+  @Permissions('manage:workflows')
+  @ApiOperation({ summary: 'Bulk publish workflows' })
+  async bulkPublish(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.workflowDefinition.updateMany({
+      where: { id: { in: dto.ids }, status: 'DRAFT' },
+      data: { status: 'ACTIVE' },
+    } as any);
   }
 
   @Post(':id/publish')

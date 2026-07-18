@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from '@platform/platform-core';
 import { Permissions } from '@platform/platform-kernel';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Feature Flags')
 @ApiBearerAuth('access-token')
@@ -40,5 +41,26 @@ export class FeatureFlagsController {
   @ApiOperation({ summary: 'Toggle feature flag' })
   async update(@Param('id') id: string, @Body() data: any): Promise<any> {
     return this.prisma.client.featureFlag.update({ where: { id }, data });
+  }
+
+  @Post('bulk/enable')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk enable feature flags' })
+  async bulkEnable(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.featureFlag.updateMany({ where: { id: { in: dto.ids } }, data: { isEnabled: true } });
+  }
+
+  @Post('bulk/disable')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk disable feature flags' })
+  async bulkDisable(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.featureFlag.updateMany({ where: { id: { in: dto.ids } }, data: { isEnabled: false } });
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk delete feature flags' })
+  async bulkDelete(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.featureFlag.deleteMany({ where: { id: { in: dto.ids } } });
   }
 }

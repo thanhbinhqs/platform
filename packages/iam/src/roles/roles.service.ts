@@ -82,6 +82,19 @@ export class RolesService {
     return { deleted: true, id };
   }
 
+  async bulkRemove(ids: string[]) {
+    // Skip system roles
+    const roles = await this.prisma.client.role.findMany({
+      where: { id: { in: ids }, isSystem: false, deletedAt: null },
+    });
+    if (!roles.length) return { deleted: 0 };
+    await this.prisma.client.role.updateMany({
+      where: { id: { in: roles.map(r => r.id) } },
+      data: { deletedAt: new Date() } as any,
+    });
+    return { deleted: roles.length, skipped: ids.length - roles.length };
+  }
+
   async assignPermissions(roleId: string, dto: AssignPermissionsDto) {
     const role = await this.prisma.client.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException('Role not found');

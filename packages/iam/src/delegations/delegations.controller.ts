@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Permissions } from '@platform/platform-kernel';
 import { PrismaService } from '@platform/platform-core';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 import type { AuthenticatedUser } from '../common';
 
 @ApiTags('Delegations')
@@ -57,5 +58,15 @@ export class DelegationsController {
   @ApiOperation({ summary: 'Revoke delegation' })
   async remove(@Param('id') id: string): Promise<any> {
     return this.prisma.client.delegation.update({ where: { id }, data: { status: 'REVOKED' } } as any);
+  }
+
+  @Post('bulk/revoke')
+  @Permissions('manage:users')
+  @ApiOperation({ summary: 'Bulk revoke delegations' })
+  async bulkRevoke(@Body() dto: BulkIdsDto): Promise<any> {
+    return this.prisma.client.delegation.updateMany({
+      where: { id: { in: dto.ids }, status: 'ACTIVE' },
+      data: { status: 'REVOKED' },
+    } as any);
   }
 }

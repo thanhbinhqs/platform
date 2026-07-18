@@ -2,8 +2,9 @@ import { useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Pencil, Trash2, Key, ToggleLeft, UserPlus } from 'lucide-react';
+import { Pencil, Trash2, Key, ToggleLeft, UserPlus, Trash } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
+import { BulkActions, type BulkAction } from '../components/bulk-actions';
 
 interface User { id: string; username: string; email: string; displayName?: string; status?: string; isActive?: boolean; role?: { id: string; name: string } | string; roleId?: string; createdAt: string; [key: string]: unknown; }
 
@@ -23,6 +24,9 @@ export function UsersPage() {
   const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User deleted'); }, onError: (e: Error) => toast.error(e.message) });
   const resetPwdMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { toast.success('Password reset'); setResetPwdItem(null); }, onError: (e: Error) => toast.error(e.message) });
   const toggleStatusMutation = useMutation({ mutationFn: async ({ id, isActive }: any) => { const r = await fetch(`/api/v1/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ isActive: !isActive }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User status toggled'); }, onError: (e: Error) => toast.error(e.message) });
+  const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const bulkActivateMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/activate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users activated'); }, onError: (e: Error) => toast.error(e.message) });
+  const bulkDeactivateMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/deactivate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deactivated'); }, onError: (e: Error) => toast.error(e.message) });
 
   const roleOptions = useMemo(() => (roles || []).map((r: any) => ({ label: r.name, value: r.id })), [roles]);
 
@@ -61,7 +65,12 @@ export function UsersPage() {
       <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Users</h1>
         <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div>
       <DataGrid columns={columns} data={users || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
-        onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found." />
+        onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
+        bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+          { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); }, variant: 'destructive' },
+          { label: 'Activate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkActivateMutation.mutate(ids) },
+          { label: 'Deactivate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDeactivateMutation.mutate(ids) },
+        ]} />} />
 
       {/* Create/Edit Dialog */}
       <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}

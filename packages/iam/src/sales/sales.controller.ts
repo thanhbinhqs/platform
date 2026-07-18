@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions, CurrentUser } from '@platform/platform-kernel';
 import { SalesService } from './sales.service';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 import type { AuthenticatedUser } from '../common';
 
 @ApiTags('Sales')
@@ -104,4 +105,20 @@ export class SalesController {
   @Permissions('manage:invoices')
   @ApiOperation({ summary: 'Record payment against invoice (auto-updates invoice status)' })
   async recordPayment(@Body() b: any) { return this.sales.recordPayment(b); }
+
+  // ─── Bulk Actions ───
+  @Post('products/bulk/delete')
+  @Permissions('manage:settings')
+  @ApiOperation({ summary: 'Bulk delete products' })
+  async bulkDeleteProducts(@Body() dto: BulkIdsDto) { return this.sales.bulkDeleteProducts(dto.ids); }
+
+  @Post('orders/bulk/delete')
+  @Permissions('manage:orders')
+  @ApiOperation({ summary: 'Bulk cancel orders' })
+  async bulkCancelOrders(@Body() dto: BulkIdsDto) { return this.sales.bulkCancelOrders(dto.ids); }
+
+  @Post('invoices/bulk/delete')
+  @Permissions('manage:invoices')
+  @ApiOperation({ summary: 'Bulk cancel invoices' })
+  async bulkCancelInvoices(@Body() dto: BulkIdsDto) { return this.sales.bulkCancelInvoices(dto.ids); }
 }

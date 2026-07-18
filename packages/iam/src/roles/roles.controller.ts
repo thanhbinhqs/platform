@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
 import { RolesService } from './roles.service';
 import type { CreateRoleDto, AssignPermissionsDto } from './dto/role.dto';
+import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Roles')
 @ApiBearerAuth('access-token')
@@ -52,5 +53,12 @@ export class RolesController {
   @ApiOperation({ summary: 'Assign permissions to role' })
   async assignPermissions(@Param('id') id: string, @Body() dto: AssignPermissionsDto) {
     return this.rolesService.assignPermissions(id, dto);
+  }
+
+  @Post('bulk/delete')
+  @Permissions('manage:roles')
+  @ApiOperation({ summary: 'Bulk soft-delete roles (skips system roles)' })
+  async bulkRemove(@Body() dto: BulkIdsDto) {
+    return this.rolesService.bulkRemove(dto.ids);
   }
 }
