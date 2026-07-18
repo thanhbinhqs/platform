@@ -16,31 +16,19 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { label: 'Dashboard', href: '/', icon: '◻' },
   {
-    label: 'System', icon: '⚙', children: [
+    label: 'Administration', icon: '⚙', children: [
       { label: 'Users', href: '/users', icon: '👥' },
       { label: 'Roles', href: '/roles', icon: '🔐' },
       { label: 'Tenants', href: '/tenants', icon: '🏢' },
       { label: 'Audit Logs', href: '/audit-logs', icon: '📋' },
-    ],
-  },
-  {
-    label: 'Business', icon: '🏭', children: [
       { label: 'Products', href: '/products', icon: '📦' },
       { label: 'Orders', href: '/orders', icon: '🛒' },
       { label: 'Invoices', href: '/invoices', icon: '🧾' },
       { label: 'Workflows', href: '/workflows', icon: '⚡' },
-    ],
-  },
-  {
-    label: 'Automation', icon: '🤖', children: [
       { label: 'Rules', href: '/rules', icon: '⚖️' },
       { label: 'Webhooks', href: '/webhooks', icon: '🔗' },
       { label: 'Scheduled Jobs', href: '/scheduled-jobs', icon: '⏰' },
       { label: 'Integrations', href: '/integrations', icon: '🔌' },
-    ],
-  },
-  {
-    label: 'Settings', icon: '🔧', children: [
       { label: 'Feature Flags', href: '/feature-flags', icon: '🚩' },
       { label: 'API Keys', href: '/api-keys', icon: '🔑' },
       { label: 'Storage', href: '/storage', icon: '💾' },
