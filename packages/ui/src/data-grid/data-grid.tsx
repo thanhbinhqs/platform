@@ -532,6 +532,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getFilteredRowModel: !serverSide?.manualFiltering ? getFilteredRowModel() : undefined,
     getGroupedRowModel: enableGrouping ? getGroupedRowModel() : undefined,
+    enableColumnResizing: enableColumnResize,
+    columnResizeMode: 'onChange',
     debugTable: false,
   });
 
@@ -612,7 +614,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           const stickyAttr = getColStickyAttr(h.column.id);
           const filterValue = (h.column.getFilterValue() ?? '') as string;
           return (
-            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''}`}
+            <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative group' : ''} ${stickyAttr?.className ?? ''}`}
               onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize(), ...(stickyAttr ? { backgroundColor: 'var(--color-muted)' } : {}) }} colSpan={h.colSpan}>
               <div className="flex items-center gap-1">
                 {flexRender(h.column.columnDef.header, h.getContext())}
@@ -630,7 +632,37 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                   )}
                 </div>
               )}
-              {enableColumnResize && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-border hover:bg-primary" />}
+              {enableColumnResize && h.column.getCanResize() && (
+                <div
+                  onMouseDown={(e) => {
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                    h.getResizeHandler()(e);
+                    const cleanup = () => {
+                      document.body.style.cursor = '';
+                      document.body.style.userSelect = '';
+                      document.removeEventListener('mouseup', cleanup);
+                      document.removeEventListener('touchend', cleanup);
+                    };
+                    document.addEventListener('mouseup', cleanup);
+                    document.addEventListener('touchend', cleanup);
+                  }}
+                  onTouchStart={(e) => {
+                    document.body.style.userSelect = 'none';
+                    h.getResizeHandler()(e);
+                  }}
+                  className={`absolute right-0 top-0 h-full w-2.5 cursor-col-resize select-none touch-none z-30 flex items-center justify-center transition-colors
+                    ${h.column.getIsResizing() ? 'bg-primary/5' : 'group-hover:bg-accent/30'}`}
+                  style={{ transform: 'none' }}
+                >
+                  <div className={`h-full w-[3px] rounded-full transition-all duration-150
+                    ${h.column.getIsResizing()
+                      ? 'w-[5px] bg-primary shadow-[0_0_5px_var(--color-primary)]'
+                      : 'bg-border group-hover:w-[4px] group-hover:bg-primary/60'
+                    }`}
+                  />
+                </div>
+              )}
             </th>
           );
         })}
