@@ -30,7 +30,7 @@ export function DelegationsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Delegations</h1>
       <Button onClick={() => { setDialogOpen(true); }}><UserCheck size={16} className="mr-1" /> Add Delegation</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Delegations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No delegations found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Delegations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No delegations found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Revoke', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Revoke ${ids.length} delegations?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

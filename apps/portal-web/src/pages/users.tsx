@@ -64,7 +64,7 @@ export function UsersPage() {
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Users</h1>
         <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div>
-      <DataGrid columns={columns} data={users || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
+      <DataGrid enableSearch columns={columns} data={users || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
         onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
         bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
           { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); }, variant: 'destructive' },

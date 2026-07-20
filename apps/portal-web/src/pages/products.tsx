@@ -32,7 +32,7 @@ export function ProductsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Products</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Package size={16} className="mr-1" /> Add Product</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Products" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No products found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Products" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No products found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Archive', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Archive ${ids.length} products?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

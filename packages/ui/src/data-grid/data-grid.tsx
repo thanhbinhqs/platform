@@ -20,7 +20,7 @@ import {
   useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect,
   type ReactNode, type KeyboardEvent,
 } from 'react';
-import { ChevronDown, ChevronUp, ChevronsUpDown, Download,
+import { ChevronDown, ChevronUp, ChevronsUpDown, Download, Search,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
 import { PaginationBar } from './pagination-bar';
@@ -112,6 +112,7 @@ export interface DataGridProps<TData> {
   enableColumnResize?: boolean;
   enableExport?: boolean;
   enableDensity?: boolean;
+  /** Show global search input */  enableSearch?: boolean;
   /** External density control — when provided, DataGrid defers to this value */
   density?: 'compact' | 'standard' | 'comfortable';
   onDensityChange?: (key: 'compact' | 'standard' | 'comfortable') => void;
@@ -408,7 +409,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   total: extTotal,
   onPageChange: extOnPageChange, onPageSizeChange: extOnPageSizeChange,
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
-  enableColumnResize, enableExport = true, enableDensity = true,
+  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false,
+  searchPlaceholder,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
@@ -586,7 +588,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   return (
     <div className={`flex flex-1 flex-col min-h-0 space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
       {/* ── Panel Header ── */}
-      {Boolean(title || enableExport || enableDensity || actionButtons) && (
+      {Boolean(title || enableExport || enableDensity || actionButtons || enableSearch) && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 min-h-0">
           <div className="flex items-center gap-2">
             {title && <h2 className="text-sm font-bold tracking-tight">{title}</h2>}
@@ -595,6 +597,23 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
             {actionButtons}
           </div>
           <div className="flex items-center gap-1.5">
+            {enableSearch && (
+              <div className="relative flex items-center">
+                <Search size={14} className="absolute left-2 text-muted-foreground pointer-events-none" />
+                <input
+                  data-dg-search
+                  type="text"
+                  placeholder={searchPlaceholder || 'Search\u2026'}
+                  className="h-7 w-44 rounded-md border bg-background pl-7 pr-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  value={serverSide?.globalFilter ?? globalFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    serverSide?.onGlobalFilterChange?.(v);
+                    setGlobalFilter(v);
+                  }}
+                />
+              </div>
+            )}
             {enableExport && (
               <div className="relative">
                 <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"

@@ -34,7 +34,7 @@ export function InvoicesPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Invoices</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Receipt size={16} className="mr-1" /> Add Invoice</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Invoices" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No invoices found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Invoices" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No invoices found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Cancel', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Cancel ${ids.length} invoices?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

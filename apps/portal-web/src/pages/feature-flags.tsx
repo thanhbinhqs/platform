@@ -36,7 +36,7 @@ export function FeatureFlagsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Feature Flags</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Flag size={16} className="mr-1" /> Add Flag</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Feature Flags" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No feature flags found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Feature Flags" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No feature flags found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} flags?`)) bulkDeleteMutation.mutate(ids); } },
         { label: 'Enable', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkEnableMutation.mutate(ids) },

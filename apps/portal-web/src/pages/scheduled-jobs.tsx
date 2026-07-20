@@ -40,7 +40,7 @@ export function ScheduledJobsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Scheduled Jobs</h1>
       <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><Clock size={16} className="mr-1" /> Add Job</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Scheduled Jobs" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No scheduled jobs found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Scheduled Jobs" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No scheduled jobs found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} jobs?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

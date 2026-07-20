@@ -31,7 +31,7 @@ export function StoragePage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Storage</h1>
       <Button onClick={() => setDialogOpen(true)}><HardDrive size={16} className="mr-1" /> Create Bucket</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Storage" enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No storage found." />
+    <DataGrid enableSearch columns={columns} data={data || []} title="Storage" enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No storage found." />
     <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
       title="Create Storage Bucket" fields={formFields} initialValues={{ provider: 'LOCAL', isPublic: false }}
       onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />

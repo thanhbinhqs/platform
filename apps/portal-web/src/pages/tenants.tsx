@@ -32,7 +32,7 @@ export function TenantsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Tenants</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Building2 size={16} className="mr-1" /> Add Tenant</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Tenants" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No tenants found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Tenants" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No tenants found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} tenants?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

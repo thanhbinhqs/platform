@@ -44,7 +44,7 @@ export function WebhooksPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Webhooks</h1>
       <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><Webhook size={16} className="mr-1" /> Add Webhook</Button></div>
-    <DataGrid columns={columns} data={data || []} title="Webhooks" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No webhooks found."
+    <DataGrid enableSearch columns={columns} data={data || []} title="Webhooks" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No webhooks found."
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} webhooks?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />

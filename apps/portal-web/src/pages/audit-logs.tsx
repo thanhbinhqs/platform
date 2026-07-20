@@ -14,6 +14,6 @@ export function AuditLogsPage() {
   ], []);
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden"><h1 className="text-2xl font-bold">Audit Logs</h1>
-    <DataGrid columns={columns} data={data || []} title="Audit Logs" enableSorting enableColumnVisibility enableExport enableDensity pageSize={20} pageSizeOptions={[10, 20, 50, 100]} emptyMessage="No audit logs found." />
+    <DataGrid enableSearch columns={columns} data={data || []} title="Audit Logs" enableSorting enableColumnVisibility enableExport enableDensity pageSize={20} pageSizeOptions={[10, 20, 50, 100]} emptyMessage="No audit logs found." />
   </div>);
 }
