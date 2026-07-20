@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
@@ -14,11 +14,22 @@ export function OrdersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(15);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sorting, setSorting] = useState<any[]>([]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, pageSize],
+    queryKey: ['orders', page, pageSize, debouncedSearch, sorting],
     queryFn: async () => {
-      const r = await fetch(`/api/v1/sales/orders?page=${page + 1}&limit=${pageSize}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
+      const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
+      const r = await fetch(`/api/v1/sales/orders?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
       const d = j?.data || j;
       return { items: (d?.data || d || []) as Item[], total: d?.total || 0 };
@@ -44,14 +55,23 @@ export function OrdersPage() {
     setPageSize(p.pageSize);
   }, []);
 
+  const handleGlobalFilterChange = useCallback((value: string) => {
+    setSearch(value);
+    setPage(0);
+  }, []);
+
   const serverSide = useMemo(() => ({
     manualPagination: true as const,
-    manualSorting: false,
+    manualSorting: true as const,
     manualFiltering: false,
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
     onPaginationChange: handlePaginationChange,
-  }), [page, pageSize, data?.total, handlePaginationChange]);
+    sorting,
+    onSortingChange: setSorting,
+    onGlobalFilterChange: handleGlobalFilterChange,
+    globalFilter: search,
+  }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">

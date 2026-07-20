@@ -163,7 +163,7 @@ export interface DataGridProps<TData> {
     manualFiltering?: boolean;
     onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
     columnFilters?: ColumnFiltersState;
-    onGlobalFilterChange?: OnChangeFn<string>;
+    onGlobalFilterChange?: (value: string) => void;
     globalFilter?: string;
   };
   classNames?: { wrapper?: string; table?: string; header?: string; row?: string; cell?: string };
