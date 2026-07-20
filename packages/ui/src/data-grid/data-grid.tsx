@@ -88,6 +88,7 @@ export interface ColumnMeta {
   format?: ColumnFormat;
   /** Excel export properties (used by xlsx generator) */
   excel?: ExcelColumnProperties;
+  /** Footer label (shown when showFooter enabled) */  footerText?: string;
 }
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown> & { meta?: ColumnMeta };
@@ -112,6 +113,7 @@ export interface DataGridProps<TData> {
   enableColumnVisibility?: boolean;
   enableColumnResize?: boolean;
   /** Show column-level filter inputs in header */  enableColumnFilter?: boolean;
+  /** Show summary footer row */  showFooter?: boolean;
   enableExport?: boolean;
   enableDensity?: boolean;
   /** Show global search input */  enableSearch?: boolean;
@@ -411,7 +413,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   total: extTotal,
   onPageChange: extOnPageChange, onPageSizeChange: extOnPageSizeChange,
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
-  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false, enableColumnFilter = false,
+  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false, enableColumnFilter = false, showFooter = false,
   searchPlaceholder,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
@@ -696,6 +698,39 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           <table className="w-full border border-border border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
             <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
             <tbody>{table.getRowModel().rows.map((row, idx) => renderRow(row, idx))}</tbody>
+            {showFooter && (() => {
+              const visibleCols = table.getVisibleFlatColumns();
+              const rows = table.getRowModel().rows;
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-border font-semibold" style={{ backgroundColor: 'var(--color-muted)' }}>
+                    {enableRowNumber && <td className="sticky text-center text-xs text-muted-foreground px-1.5 py-1 border-r" style={{ left: 0, backgroundColor: 'var(--color-muted)' }}></td>}
+                    {enableSelection && <td className="sticky text-center border-r" style={{ left: 40, backgroundColor: 'var(--color-muted)' }}></td>}
+                    {visibleCols.map(col => {
+                      const m = col.columnDef.meta as any;
+                      const footerText = m?.footerText;
+                      const format = m?.format;
+                      // Auto-sum number/currency columns
+                      let autoSum: string | null = null;
+                      if (format && (format.type === 'number' || format.type === 'currency' || format.type === 'percentage') && rows.length > 0) {
+                        const ak = (col.columnDef as any).accessorKey as string;
+                        if (ak) {
+                          const sum = rows.reduce((acc, r) => {
+                            const v = parseFloat((r.original as any)[ak]);
+                            return acc + (isNaN(v) ? 0 : v);
+                          }, 0);
+                          if (format.type === 'currency') autoSum = sum.toLocaleString('en-US', { style: 'currency', currency: format.currency || 'USD', minimumFractionDigits: 2 });
+                          else if (format.type === 'percentage') autoSum = sum.toFixed(0) + '%';
+                          else autoSum = sum.toLocaleString('en-US', { minimumFractionDigits: format.decimalPlaces ?? 2 });
+                        }
+                      }
+                      const display = autoSum ?? footerText ?? '';
+                      return <td key={col.id} className="px-2 py-1 text-xs border-r">{display}</td>;
+                    })}
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         )}
       </div>
