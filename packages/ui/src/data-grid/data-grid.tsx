@@ -699,6 +699,21 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     );
   }
 
+  function VirtualRow({ rowId, row, virtualRow }: { rowId: string; row: Row<TData>; virtualRow: any }) {
+    const { setNodeRef, transform, transition, isDragging } = useSortable({ id: rowId });
+    const style: React.CSSProperties = {
+      position: 'absolute', top: 0, left: 0, width: '100%', height: virtualRowHeight,
+      transform: CSS.Transform.toString({ x: transform?.x ?? 0, y: (transform?.y ?? 0) + virtualRow.start, scaleX: transform?.scaleX ?? 1, scaleY: 1 }),
+      transition, opacity: isDragging ? 0.4 : 1
+    };
+    return (
+      <tr ref={setNodeRef} key={rowId} style={style} className={`border-b transition-colors ${den.row}`}>
+        {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
+        {renderRowCells(row, virtualRow.index)}
+      </tr>
+    );
+  }
+
   function renderRow(row: Row<TData>, rowIdx: number) {
     const isEven = rowIdx % 2 === 0;
     const isCtxRow = contextRowId === row.id;
@@ -713,6 +728,11 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       </DraggableRow>
     );
   }
+
+  const dndSensors = enableRowDrag ? useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  ) : undefined;
 
   return (
     <div className={`flex flex-1 flex-col min-h-0 space-y-2 ${classNames.wrapper ?? ''}`} onKeyDown={handleKey}>
@@ -811,7 +831,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {!isLoading && !error && data.length > 0 && (
           <table className="w-full border border-border border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
             <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
-            <DndContext
+            <DndContext sensors={dndSensors}
               collisionDetection={closestCenter}
               onDragEnd={({ active, over }) => { if (over && active.id !== over.id) onRowReorder?.(data.findIndex(r => (r as any).id === active.id), data.findIndex(r => (r as any).id === over.id)); }}>
               <SortableContext items={data.map(r => String((r as any).id))} strategy={verticalListSortingStrategy}>
@@ -821,13 +841,8 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     const row = table.getRowModel().rows[virtualRow.index];
                     if (!row) return null;
                     const rowId = row.id;
-                    const { setNodeRef, transform, transition, isDragging } = useSortable({ id: rowId });
-                    const style: React.CSSProperties = { position: 'absolute', top: 0, left: 0, width: '100%', height: virtualRowHeight, transition, opacity: isDragging ? 0.4 : 1 };
                     return (
-                      <tr ref={setNodeRef} key={rowId} style={style} className={`border-b transition-colors ${den.row}`}>
-                        {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
-                        {renderRowCells(row, virtualRow.index)}
-                      </tr>
+                      <VirtualRow key={rowId} rowId={rowId} row={row} virtualRow={virtualRow} />
                     );
                   })
                 ) : (
