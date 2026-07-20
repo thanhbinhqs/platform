@@ -135,6 +135,8 @@ export interface DataGridProps<TData> {
   /** Table container max-height (default: 100%) */  maxHeight?: string;
   /** Enable row expansion with expand/collapse toggle column */  enableRowExpansion?: boolean;
   /** Render expanded detail content for a row */  renderRowDetail?: (row: TData) => ReactNode;
+  /** Enable inline cell editing — click to edit, Enter/blur to save */  enableInlineEditing?: boolean;
+  /** Called when a cell value is saved via inline editing */  onCellSave?: (row: TData, columnId: string, value: unknown) => void;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -426,12 +428,28 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
   onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions, toolbarNodes, maxHeight = '100%',
   enableRowExpansion, renderRowDetail,
+  enableInlineEditing, onCellSave,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [colFilters, setColFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const startEditing = useCallback((rowId: string, columnId: string, currentValue: string) => {
+    setEditingCell({ rowId, columnId });
+    setEditValue(currentValue);
+  }, []);
+  const commitEdit = useCallback((row: TData, columnId: string) => {
+    if (!editingCell) return;
+    onCellSave?.(row, columnId, editValue);
+    setEditingCell(null);
+  }, [editingCell, editValue, onCellSave]);
+  const cancelEdit = useCallback(() => {
+    setEditingCell(null);
+  }, []);
   const toggleRowExpanded = useCallback((rowId: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
@@ -621,7 +639,23 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           const stickyAttr = getColStickyAttr(cell.column.id);
           const cellRaw = (cell.column.columnDef as any).accessorKey ? (row.original as any)[(cell.column.columnDef as any).accessorKey] : undefined;
           const valClass = (cellRaw !== undefined && m?.cellValueClass) ? (m.cellValueClass[String(cellRaw)] ?? '') : '';
-          return <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+          const isEditing = enableInlineEditing && editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id;
+          const cellValue = (cell.column.columnDef as any).accessorKey ? (row.original as any)[(cell.column.columnDef as any).accessorKey] : undefined;
+          return (
+            <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${enableInlineEditing && !isEditing ? 'cursor-pointer hover:bg-accent/30' : ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}
+              onDoubleClick={() => { if (enableInlineEditing) { startEditing(row.id, cell.column.id, String(cellValue ?? '')); setTimeout(() => editInputRef.current?.focus(), 0); } }}>
+              {isEditing ? (
+                <input ref={editInputRef} type={m?.filterType === 'number' ? 'number' : 'text'}
+                  className="h-6 w-full rounded border bg-background px-1 text-xs outline-none focus:border-primary"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onBlur={() => commitEdit(row.original, cell.column.id)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(row.original, cell.column.id); } else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); } }} />
+              ) : (
+                <span className="truncate block">{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
+              )}
+            </td>
+          );
         })}
         {renderRowActions && (
           <td className={`${den.cell} ${den.font} border-r border-b border-border text-right whitespace-nowrap`} style={{ backgroundColor: rowBg }}>
