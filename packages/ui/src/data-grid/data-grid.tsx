@@ -89,6 +89,7 @@ export interface ColumnMeta {
   /** Excel export properties (used by xlsx generator) */
   excel?: ExcelColumnProperties;
   /** Footer label (shown when showFooter enabled) */  footerText?: string;
+  /** Map raw cell value -> CSS class for conditional styling */  cellValueClass?: Record<string, string>;
 }
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown> & { meta?: ColumnMeta };
@@ -596,7 +597,9 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
-          return <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+          const cellRaw = (cell.column.columnDef as any).accessorKey ? (row.original as any)[(cell.column.columnDef as any).accessorKey] : undefined;
+          const valClass = (cellRaw !== undefined && m?.cellValueClass) ? (m.cellValueClass[String(cellRaw)] ?? '') : '';
+          return <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
         })}
       </tr>
     );
