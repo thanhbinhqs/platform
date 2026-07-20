@@ -15,6 +15,7 @@ import {
   type HeaderGroup,
   type Row,
   type Cell,
+  type Column,
 } from '@tanstack/react-table';
 import {
   useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect,
@@ -110,6 +111,7 @@ export interface DataGridProps<TData> {
   enableSorting?: boolean;
   enableColumnVisibility?: boolean;
   enableColumnResize?: boolean;
+  /** Show column-level filter inputs in header */  enableColumnFilter?: boolean;
   enableExport?: boolean;
   enableDensity?: boolean;
   /** Show global search input */  enableSearch?: boolean;
@@ -409,7 +411,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   total: extTotal,
   onPageChange: extOnPageChange, onPageSizeChange: extOnPageSizeChange,
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
-  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false,
+  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false, enableColumnFilter = false,
   searchPlaceholder,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
@@ -545,6 +547,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
           const stickyAttr = getColStickyAttr(h.column.id);
+          const filterValue = (h.column.getFilterValue() ?? '') as string;
           return (
             <th key={h.id} className={`${den.cell} ${den.font} font-semibold text-muted-foreground whitespace-nowrap border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${cs ? 'cursor-pointer select-none hover:bg-accent/50' : ''} ${classNames.header ?? ''} ${enableColumnResize ? 'relative' : ''} ${stickyAttr?.className ?? ''}`}
               onClick={cs ? h.column.getToggleSortingHandler() : undefined} style={{ ...(stickyAttr?.style ?? {}), width: h.getSize(), ...(stickyAttr ? { backgroundColor: 'var(--color-muted)' } : {}) }} colSpan={h.colSpan}>
@@ -552,6 +555,18 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                 {flexRender(h.column.columnDef.header, h.getContext())}
                 {cs && <span className="shrink-0 text-muted-foreground/50">{h.column.getIsSorted() === 'asc' ? <ChevronUp size={14} /> : h.column.getIsSorted() === 'desc' ? <ChevronDown size={14} /> : <ChevronsUpDown size={14} />}</span>}
               </div>
+              {enableColumnFilter && m?.filterType && (
+                <div className="mt-1">
+                  {m.filterType === 'select' && m.filterOptions ? (
+                    <select className="w-full rounded border bg-background px-1 py-0.5 text-[10px] outline-none focus:border-primary" value={filterValue} onChange={e => { const v = e.target.value; h.column.setFilterValue(v || undefined); }}>
+                      <option value="">All</option>
+                      {m.filterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  ) : (
+                    <input type={m.filterType === 'number' ? 'number' : m.filterType === 'date' ? 'date' : 'text'} className="w-full rounded border bg-background px-1 py-0.5 text-[10px] outline-none focus:border-primary" placeholder={`Filter ${h.column.id}…`} value={filterValue} onChange={e => { const v = e.target.value; h.column.setFilterValue(v || undefined); }} />
+                  )}
+                </div>
+              )}
               {enableColumnResize && <div onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-border hover:bg-primary" />}
             </th>
           );
