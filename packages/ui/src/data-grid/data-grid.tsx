@@ -551,6 +551,16 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     }
   }, [rowSel, onSelectionChange]);
 
+  // Inject global CSS for resize cursor — overrides th cursor-pointer during drag
+  const resizeStyleId = 'dg-resize-style';
+  useEffect(() => {
+    if (document.getElementById(resizeStyleId)) return;
+    const style = document.createElement('style');
+    style.id = resizeStyleId;
+    style.textContent = `html.data-grid-resizing,html.data-grid-resizing *{cursor:col-resize!important;user-select:none!important}`;
+    document.head.appendChild(style);
+  }, []);
+
   // Clear context-row highlight when clicking outside rows
   const wrapperRef = useRef<HTMLDivElement>(null);
   useEffect((): (() => void) | undefined => {
@@ -635,12 +645,10 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
               {enableColumnResize && h.column.getCanResize() && (
                 <div
                   onMouseDown={(e) => {
-                    document.body.style.cursor = 'col-resize';
-                    document.body.style.userSelect = 'none';
+                    document.documentElement.classList.add('data-grid-resizing');
                     h.getResizeHandler()(e);
                     const cleanup = () => {
-                      document.body.style.cursor = '';
-                      document.body.style.userSelect = '';
+                      document.documentElement.classList.remove('data-grid-resizing');
                       document.removeEventListener('mouseup', cleanup);
                       document.removeEventListener('touchend', cleanup);
                     };
@@ -648,7 +656,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     document.addEventListener('touchend', cleanup);
                   }}
                   onTouchStart={(e) => {
-                    document.body.style.userSelect = 'none';
+                    document.documentElement.classList.add('data-grid-resizing');
                     h.getResizeHandler()(e);
                   }}
                   className={`absolute right-0 top-0 h-full w-2.5 cursor-col-resize select-none touch-none z-30 flex items-center justify-center transition-colors
@@ -693,7 +701,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         const valClass = (cellRaw !== undefined && m?.cellValueClass) ? (m.cellValueClass[String(cellRaw)] ?? '') : '';
         const isEditing = enableInlineEditing && editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id;
         return (
-          <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${enableInlineEditing && !isEditing ? 'cursor-pointer hover:bg-accent/30' : ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}
+          <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${enableInlineEditing && !isEditing ? 'cursor-pointer hover:bg-accent/30' : ''}`} style={{ ...(stickyAttr?.style ?? {}), width: cell.column.getSize(), backgroundColor: rowBg }}
             onDoubleClick={() => { if (enableInlineEditing) { startEditing(row.id, cell.column.id, String(cellRaw ?? '')); setTimeout(() => editInputRef.current?.focus(), 0); } }}>
             {isEditing ? (
               <input ref={editInputRef} type={m?.filterType === 'number' ? 'number' : 'text'}
@@ -866,6 +874,13 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         )}
         {!isLoading && !error && data.length > 0 && (
           <table className="w-full border border-border border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
+            <colgroup>
+              {enableRowNumber && <col style={{ width: 48 }} />}
+              {enableSelection && <col style={{ width: 40 }} />}
+              {enableRowExpansion && <col style={{ width: 36 }} />}
+              {enableRowDrag && <col style={{ width: 30 }} />}
+              {table.getAllColumns().map(col => <col key={col.id} style={{ width: col.getSize() }} />)}
+            </colgroup>
             <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
             <DndContext sensors={dndSensors}
               collisionDetection={closestCenter}
