@@ -131,6 +131,8 @@ export interface DataGridProps<TData> {
   /** Right-click on a row — position is clientX/clientY for context menu placement */
   onRowContextMenu?: (row: TData, position: { x: number; y: number }) => void;
   /** Render action buttons for each row */  renderRowActions?: (row: TData) => ReactNode;
+  /** Extra elements in the header toolbar (left side) */  toolbarNodes?: ReactNode;
+  /** Table container max-height (default: 100%) */  maxHeight?: string;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -420,7 +422,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
-  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions,
+  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions, toolbarNodes, maxHeight = '100%',
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -621,6 +623,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
             {hasSel && <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selRows.length} selected</span>}
             {hasSel && bulkActions}
             {actionButtons}
+            {toolbarNodes}
           </div>
           <div className="flex items-center gap-1.5">
             {enableSearch && (
@@ -685,7 +688,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       )}
 
       {/* ── Table Area ── */}
-      <div className="flex-1 min-h-0 isolate rounded-lg border bg-card" style={{ overflow: 'auto', maxHeight: '100%' }}>
+      <div className="flex-1 min-h-0 isolate rounded-lg border bg-card" style={{ overflow: 'auto', maxHeight }}>
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
