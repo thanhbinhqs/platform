@@ -15,8 +15,18 @@ export function UsersPage() {
   const [editItem, setEditItem] = useState<User | null>(null);
   const [deleteItem, setDeleteItem] = useState<User | null>(null);
   const [resetPwdItem, setResetPwdItem] = useState<User | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(15);
 
-  const { data: users, isLoading } = useQuery({ queryKey: ['users'], queryFn: async () => { const r = await fetch('/api/v1/users', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []) as User[]; } });
+  const { data, isLoading } = useQuery({
+    queryKey: ['users', page, pageSize],
+    queryFn: async () => {
+      const r = await fetch(`/api/v1/users?page=${page + 1}&limit=${pageSize}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
+      const j = await r.json();
+      const d = j?.data || j;
+      return { items: (d?.data || d || []) as User[], total: d?.total || 0 };
+    },
+  });
   const { data: roles } = useQuery({ queryKey: ['roles-list'], queryFn: async () => { const r = await fetch('/api/v1/roles', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []) as { id: string; name: string }[]; } });
 
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/users', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); }, onError: (e: Error) => toast.error(e.message) });
@@ -60,12 +70,29 @@ export function UsersPage() {
   ], [editItem, roleOptions]);
 
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+
+  const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
+    setPage(p.pageIndex);
+    setPageSize(p.pageSize);
+  }, []);
+
+  const serverSide = useMemo(() => ({
+    manualPagination: true as const,
+    manualSorting: false,
+    manualFiltering: false,
+    pageCount: Math.ceil((data?.total || 0) / pageSize),
+    pagination: { pageIndex: page, pageSize },
+    onPaginationChange: handlePaginationChange,
+  }), [page, pageSize, data?.total, handlePaginationChange]);
+
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Users</h1>
         <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div>
-      <DataGrid enableSearch columns={columns} data={users || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
-        onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
+      <DataGrid enableSearch columns={columns} data={data?.items || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
+        onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
+        total={data?.total || 0}
+        serverSide={serverSide}
         bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
           { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); }, variant: 'destructive' },
           { label: 'Activate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkActivateMutation.mutate(ids) },

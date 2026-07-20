@@ -153,14 +153,14 @@ export interface DataGridProps<TData> {
   actionButtons?: ReactNode;
   emptyMessage?: string;
   serverSide?: {
-    manualPagination: true;
+    manualPagination: boolean;
     pageCount: number;
-    onPaginationChange: OnChangeFn<PaginationState>;
+    onPaginationChange: (pagination: PaginationState) => void;
     pagination: PaginationState;
-    manualSorting?: true;
+    manualSorting?: boolean;
     onSortingChange?: OnChangeFn<SortingState>;
     sorting?: SortingState;
-    manualFiltering?: true;
+    manualFiltering?: boolean;
     onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
     columnFilters?: ColumnFiltersState;
     onGlobalFilterChange?: OnChangeFn<string>;

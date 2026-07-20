@@ -14,8 +14,18 @@ export function RolesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [deleteRole, setDeleteRole] = useState<Role | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(15);
 
-  const { data, isLoading } = useQuery({ queryKey: ['roles'], queryFn: async () => { const r = await fetch('/api/v1/roles', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []) as Role[]; } });
+  const { data, isLoading } = useQuery({
+    queryKey: ['roles', page, pageSize],
+    queryFn: async () => {
+      const r = await fetch(`/api/v1/roles?page=${page + 1}&limit=${pageSize}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
+      const j = await r.json();
+      const d = j?.data || j;
+      return { items: (d?.data || d || []) as Role[], total: d?.total || 0 };
+    },
+  });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/roles', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role created'); }, onError: (e: Error) => toast.error(e.message) });
   const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/roles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role updated'); }, onError: (e: Error) => toast.error(e.message) });
   const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/roles/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role deleted'); }, onError: (e: Error) => toast.error(e.message) });
@@ -42,12 +52,28 @@ export function RolesPage() {
     setDialogOpen(false); setEditRole(null);
   }, [editRole, createMutation, updateMutation]);
 
+  const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
+    setPage(p.pageIndex);
+    setPageSize(p.pageSize);
+  }, []);
+
+  const serverSide = useMemo(() => ({
+    manualPagination: true as const,
+    manualSorting: false,
+    manualFiltering: false,
+    pageCount: Math.ceil((data?.total || 0) / pageSize),
+    pagination: { pageIndex: page, pageSize },
+    onPaginationChange: handlePaginationChange,
+  }), [page, pageSize, data?.total, handlePaginationChange]);
+
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Roles</h1>
       <Button onClick={() => { setEditRole(null); setDialogOpen(true); }}><ShieldPlus size={16} className="mr-1" /> Add Role</Button></div>
-    <DataGrid enableSearch columns={columns} data={data || []} title="Roles" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
-      onSelectionChange={setSelection} pageSize={15} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No roles found."
+    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Roles" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
+      onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No roles found."
+      total={data?.total || 0}
+      serverSide={serverSide}
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} roles? (system roles skipped)`)) bulkDeleteMutation.mutate(ids); } },
       ]} />} />
