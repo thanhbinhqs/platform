@@ -4,6 +4,7 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+  getGroupedRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -145,6 +146,8 @@ export interface DataGridProps<TData> {
   /** Row height in pixels for virtual scroll (default: 40) */  virtualRowHeight?: number;
   /** Enable drag-and-drop row reordering */  enableRowDrag?: boolean;
   /** Called when rows are reordered via drag-and-drop */  onRowReorder?: (fromIndex: number, toIndex: number) => void;
+  /** Enable row grouping (requires @tanstack/react-table grouping) */  enableGrouping?: boolean;
+  /** Aggregation function for grouped rows (default: count) */  aggregationFn?: 'count' | 'sum' | 'min' | 'max' | 'avg';
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -438,7 +441,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   enableRowExpansion, renderRowDetail,
   enableInlineEditing, onCellSave,
   enableVirtualScroll, virtualRowHeight = 40,
-  enableRowDrag, onRowReorder,
+  enableRowDrag, onRowReorder, enableGrouping,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -528,6 +531,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getFilteredRowModel: !serverSide?.manualFiltering ? getFilteredRowModel() : undefined,
+    getGroupedRowModel: enableGrouping ? getGroupedRowModel() : undefined,
     debugTable: false,
   });
 
