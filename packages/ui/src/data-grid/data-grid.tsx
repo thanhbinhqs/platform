@@ -130,6 +130,7 @@ export interface DataGridProps<TData> {
   onRowClick?: (row: TData) => void;
   /** Right-click on a row — position is clientX/clientY for context menu placement */
   onRowContextMenu?: (row: TData, position: { x: number; y: number }) => void;
+  /** Render action buttons for each row */  renderRowActions?: (row: TData) => ReactNode;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -419,7 +420,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
-  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons,
+  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -601,6 +602,11 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           const valClass = (cellRaw !== undefined && m?.cellValueClass) ? (m.cellValueClass[String(cellRaw)] ?? '') : '';
           return <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
         })}
+        {renderRowActions && (
+          <td className={`${den.cell} ${den.font} border-r border-b border-border text-right whitespace-nowrap`} style={{ backgroundColor: rowBg }}>
+            {renderRowActions(row.original)}
+          </td>
+        )}
       </tr>
     );
   }
