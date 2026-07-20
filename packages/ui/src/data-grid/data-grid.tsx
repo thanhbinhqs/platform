@@ -21,7 +21,7 @@ import {
   useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect,
   type ReactNode, type KeyboardEvent,
 } from 'react';
-import { ChevronDown, ChevronUp, ChevronsUpDown, Download, Search,
+import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown, Download, Search,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
 import { PaginationBar } from './pagination-bar';
@@ -133,6 +133,8 @@ export interface DataGridProps<TData> {
   /** Render action buttons for each row */  renderRowActions?: (row: TData) => ReactNode;
   /** Extra elements in the header toolbar (left side) */  toolbarNodes?: ReactNode;
   /** Table container max-height (default: 100%) */  maxHeight?: string;
+  /** Enable row expansion with expand/collapse toggle column */  enableRowExpansion?: boolean;
+  /** Render expanded detail content for a row */  renderRowDetail?: (row: TData) => ReactNode;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -423,11 +425,21 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
   onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions, toolbarNodes, maxHeight = '100%',
+  enableRowExpansion, renderRowDetail,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [colFilters, setColFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRowExpanded = useCallback((rowId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }, []);
   const [colVisInternal, setColVisInternal] = useState<VisibilityState>({});
   const colVis = extColVis ?? colVisInternal;
   const setColVis = (extOnColVisChange ?? setColVisInternal) as (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
@@ -549,6 +561,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       <tr key={hg.id} className="border-b" style={{ backgroundColor: 'var(--color-muted)' }}>
         {enableRowNumber && <th data-sticky-id="row-number" className={`${den.cell} ${den.font} sticky text-center text-muted-foreground border-r border-b border-border`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
         {enableSelection && <th data-sticky-id="selection" className={`${den.cell} ${den.font} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
+        {enableRowExpansion && <th className={`${den.cell} ${den.font} text-center border-r border-b border-border text-muted-foreground`} style={{ width: 36, minWidth: 36, backgroundColor: 'var(--color-muted)' }}></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -590,6 +603,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         ? 'color-mix(in srgb, var(--color-accent) 80%, transparent)'
         : isEven ? 'var(--color-card)' : 'var(--color-muted)';
     return (
+      <>
       <tr key={row.id}
         className={`border-b transition-colors ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
         style={{ backgroundColor: rowBg }}
@@ -597,6 +611,11 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
         {enableRowNumber && <td data-sticky-id="row-number" className={`${den.cell} sticky text-center text-muted-foreground ${den.font} border-r border-b border-border`} style={{ left: 0, zIndex: 10, minWidth: 48, width: 48, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
         {enableSelection && <td data-sticky-id="selection" className={`${den.cell} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 10, minWidth: 40, width: 40, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
+        {enableRowExpansion && (
+          <td className={`${den.cell} ${den.font} text-center border-r border-b border-border cursor-pointer`} style={{ width: 36, minWidth: 36, backgroundColor: rowBg }} onClick={() => toggleRowExpanded(row.id)}>
+            <ChevronRight size={14} className="inline-block transition-transform" style={{ transform: expandedRows.has(row.id) ? 'rotate(90deg)' : 'rotate(0deg)' }} />
+          </td>
+        )}
         {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
           const m = cell.column.columnDef.meta as ColumnMeta | undefined;
           const stickyAttr = getColStickyAttr(cell.column.id);
@@ -610,7 +629,20 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           </td>
         )}
       </tr>
-    );
+      {enableRowExpansion && renderRowDetail && expandedRows.has(row.id) && (
+        <tr className="border-b" style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 3%, transparent)' }}>
+          <td colSpan={
+            (enableRowNumber ? 1 : 0) +
+            (enableSelection ? 1 : 0) +
+            (enableRowExpansion ? 1 : 0) +
+            table.getVisibleFlatColumns().length +
+            (renderRowActions ? 1 : 0)
+          } className="px-4 py-2 text-xs">
+            {renderRowDetail(row.original)}
+          </td>
+        </tr>
+      )}
+      </>);
   }
 
   return (
