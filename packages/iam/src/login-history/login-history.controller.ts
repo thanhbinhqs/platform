@@ -18,7 +18,10 @@ export class LoginHistoryController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit?: number,
     @Query('page') page?: number,
-  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
-    return this.service.findByUser(user.id, limit, page);
+    @Query('search') search?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDir') sortDir?: string,
+  ): Promise<{ data: any[]; total: number; page: number; pageSize: number; totalPages: number }> {
+    return this.service.findByUser(user.id, limit, page, search, sortField, sortDir);
   }
 }

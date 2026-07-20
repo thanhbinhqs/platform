@@ -42,7 +42,8 @@ export class SalesController {
   async findAllProducts(
     @Query('categoryId') cat?: string, @Query('status') status?: string,
     @Query('search') search?: string, @Query('page') page?: number, @Query('limit') limit?: number,
-  ) { return this.sales.findAllProducts({ categoryId: cat, status, search, page, limit }); }
+    @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string,
+  ) { return this.sales.findAllProducts({ categoryId: cat, status, search, page, limit, sortField, sortDir }); }
 
   @Get('products/:id')
   @Permissions('read:products')
@@ -68,8 +69,8 @@ export class SalesController {
   @Get('orders')
   @Permissions('read:orders')
   @ApiOperation({ summary: 'List orders (paginated)' })
-  async findAllOrders(@Query('status') status?: string, @Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.sales.findAllOrders({ status, page, limit });
+  async findAllOrders(@Query('status') status?: string, @Query('search') search?: string, @Query('page') page?: number, @Query('limit') limit?: number, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string) {
+    return this.sales.findAllOrders({ status, search, page, limit, sortField, sortDir });
   }
 
   @Get('orders/:id')
@@ -91,8 +92,8 @@ export class SalesController {
   @Get('invoices')
   @Permissions('read:invoices')
   @ApiOperation({ summary: 'List invoices (paginated)' })
-  async findAllInvoices(@Query('status') status?: string, @Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.sales.findAllInvoices({ status, page, limit });
+  async findAllInvoices(@Query('status') status?: string, @Query('search') search?: string, @Query('page') page?: number, @Query('limit') limit?: number, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string) {
+    return this.sales.findAllInvoices({ status, search, page, limit, sortField, sortDir });
   }
 
   @Get('invoices/:id')

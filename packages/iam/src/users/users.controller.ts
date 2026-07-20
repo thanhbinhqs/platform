@@ -33,8 +33,8 @@ export class UsersController {
   @Get()
   @Permissions('read:users', 'manage:users')
   @ApiOperation({ summary: 'List all users' })
-  async findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.usersService.findAll({ page, limit });
+  async findAll(@Query('page') page?: number, @Query('limit') limit?: number, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string) {
+    return this.usersService.findAll({ page: page ? Number(page) : undefined, limit: limit ? Number(limit) : undefined, search, sortField, sortDir });
   }
 
   @Get(':id')

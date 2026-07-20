@@ -16,14 +16,32 @@ export class WorkflowsController {
   // ─── Definitions ───
   @Get()
   @Permissions('read:workflows')
-  @ApiOperation({ summary: 'List workflow definitions' })
-  async findAll(@Query('status') status?: string): Promise<any> {
+  @ApiOperation({ summary: 'List workflow definitions (paginated)' })
+  async findAll(
+    @Query('page') page?: number, @Query('limit') limit?: number,
+    @Query('search') search?: string, @Query('status') status?: string,
+    @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string,
+  ): Promise<any> {
+    const currentPage = Math.max(1, page || 1);
+    const pageSize = Math.min(100, Math.max(1, limit || 20));
     const where: any = { deletedAt: null };
     if (status) where.status = status;
-    return this.prisma.client.workflowDefinition.findMany({
-      where, orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { steps: true, executions: true } } },
-    } as any);
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = sortField ? { [sortField]: sortDir || 'asc' } : { createdAt: 'desc' as const };
+    const [data, total] = await Promise.all([
+      this.prisma.client.workflowDefinition.findMany({
+        where, orderBy,
+        skip: (currentPage - 1) * pageSize, take: pageSize,
+        include: { _count: { select: { steps: true, executions: true } } },
+      } as any),
+      this.prisma.client.workflowDefinition.count({ where }),
+    ]);
+    return { data, total, page: currentPage, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   @Get(':id')

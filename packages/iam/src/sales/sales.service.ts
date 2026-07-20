@@ -22,18 +22,19 @@ export class SalesService {
     return `${prefix}${seq}`;
   }
 
-  async findAllProducts(q?: { categoryId?: string; status?: string; search?: string; page?: number; limit?: number }): Promise<any> {
-    const page = q?.page ?? 1;
-    const limit = Math.min(q?.limit ?? 50, 200);
+  async findAllProducts(q?: { categoryId?: string; status?: string; search?: string; page?: number; limit?: number; sortField?: string; sortDir?: string }): Promise<any> {
+    const page = Math.max(1, q?.page || 1);
+    const pageSize = Math.min(200, Math.max(1, q?.limit || 50));
     const where: any = {};
     if (q?.categoryId) where.categoryId = q.categoryId;
     if (q?.status) where.status = q.status;
     if (q?.search) where.OR = [{ name: { contains: q.search, mode: 'insensitive' } }, { sku: { contains: q.search, mode: 'insensitive' } }];
+    const orderBy = q?.sortField ? { [q.sortField]: q.sortDir || 'asc' } : { createdAt: 'desc' as const };
     const [items, total] = await Promise.all([
-      this.prisma.client.product.findMany({ where, include: { category: true }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit } as any),
+      this.prisma.client.product.findMany({ where, include: { category: true }, orderBy, skip: (page - 1) * pageSize, take: pageSize } as any),
       this.prisma.client.product.count({ where }),
     ]);
-    return { data: items as any[], total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: items as any[], total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   async findProduct(id: string): Promise<any> {
@@ -74,16 +75,18 @@ export class SalesService {
     return this.prisma.client.productCategory.delete({ where: { id } } as any);
   }
 
-  async findAllOrders(q?: { status?: string; page?: number; limit?: number }): Promise<any> {
-    const page = q?.page ?? 1;
-    const limit = Math.min(q?.limit ?? 50, 200);
+  async findAllOrders(q?: { status?: string; search?: string; page?: number; limit?: number; sortField?: string; sortDir?: string }): Promise<any> {
+    const page = Math.max(1, q?.page || 1);
+    const pageSize = Math.min(200, Math.max(1, q?.limit || 50));
     const where: any = {};
     if (q?.status) where.status = q.status;
+    if (q?.search) where.OR = [{ orderNumber: { contains: q.search, mode: 'insensitive' } }, { customerName: { contains: q.search, mode: 'insensitive' } }, { customerEmail: { contains: q.search, mode: 'insensitive' } }];
+    const orderBy = q?.sortField ? { [q.sortField]: q.sortDir || 'asc' } : { createdAt: 'desc' as const };
     const [items, total] = await Promise.all([
-      this.prisma.client.order.findMany({ where, include: { items: true, invoice: true, user: { select: { id: true, username: true, displayName: true } } }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit } as any),
+      this.prisma.client.order.findMany({ where, include: { items: true, invoice: true, user: { select: { id: true, username: true, displayName: true } } }, orderBy, skip: (page - 1) * pageSize, take: pageSize } as any),
       this.prisma.client.order.count({ where }),
     ]);
-    return { data: items as any[], total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: items as any[], total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   async findOrder(id: string): Promise<any> {
@@ -134,16 +137,18 @@ export class SalesService {
     return this.prisma.client.order.update({ where: { id }, data: { status }, include: { items: true, invoice: true } } as any);
   }
 
-  async findAllInvoices(q?: { status?: string; page?: number; limit?: number }): Promise<any> {
-    const page = q?.page ?? 1;
-    const limit = Math.min(q?.limit ?? 50, 200);
+  async findAllInvoices(q?: { status?: string; search?: string; page?: number; limit?: number; sortField?: string; sortDir?: string }): Promise<any> {
+    const page = Math.max(1, q?.page || 1);
+    const pageSize = Math.min(200, Math.max(1, q?.limit || 50));
     const where: any = {};
     if (q?.status) where.status = q.status;
+    if (q?.search) where.OR = [{ invoiceNumber: { contains: q.search, mode: 'insensitive' } }, { customerName: { contains: q.search, mode: 'insensitive' } }];
+    const orderBy = q?.sortField ? { [q.sortField]: q.sortDir || 'asc' } : { createdAt: 'desc' as const };
     const [items, total] = await Promise.all([
-      this.prisma.client.invoice.findMany({ where, include: { order: { select: { orderNumber: true, customerName: true } }, payments: true }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit } as any),
+      this.prisma.client.invoice.findMany({ where, include: { order: { select: { orderNumber: true, customerName: true } }, payments: true }, orderBy, skip: (page - 1) * pageSize, take: pageSize } as any),
       this.prisma.client.invoice.count({ where }),
     ]);
-    return { data: items as any[], total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: items as any[], total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   async findInvoice(id: string): Promise<any> {

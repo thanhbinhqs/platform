@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '@platform/platform-kernel';
 import { PrismaService } from '@platform/platform-core';
+import { WebhooksService } from './webhooks.service';
 import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 
 @ApiTags('Webhooks')
@@ -10,16 +11,20 @@ import { BulkIdsDto } from '../common/dto/bulk-ids.dto';
 @UseGuards(AuthGuard('jwt'))
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly webhooksService: WebhooksService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   @Permissions('read:webhooks')
-  @ApiOperation({ summary: 'List webhooks' })
-  async findAll(): Promise<any> {
-    return this.prisma.client.webhook.findMany({
-      include: { _count: { select: { deliveries: true } } },
-      orderBy: { createdAt: 'desc' },
-    } as any);
+  @ApiOperation({ summary: 'List webhooks (paginated)' })
+  async findAll(
+    @Query('page') page?: number, @Query('limit') limit?: number,
+    @Query('search') search?: string,
+    @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string,
+  ): Promise<any> {
+    return this.webhooksService.findAll({ page: page ? Number(page) : undefined, limit: limit ? Number(limit) : undefined, search, sortField, sortDir });
   }
 
   @Post()

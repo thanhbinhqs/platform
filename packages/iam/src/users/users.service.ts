@@ -65,23 +65,30 @@ export class UsersService {
     return this.formatUser(user);
   }
 
-  async findAll(query?: { page?: number; limit?: number }) {
-    const page = query?.page ?? 1;
-    const limit = query?.limit ?? 20;
-    const skip = (page - 1) * limit;
-
+  async findAll(params?: { page?: number; limit?: number; search?: string; sortField?: string; sortDir?: string }) {
+    const page = Math.max(1, params?.page || 1);
+    const pageSize = Math.min(100, Math.max(1, params?.limit || 20));
+    const skip = (page - 1) * pageSize;
+    const orderBy = params?.sortField ? { [params.sortField]: params.sortDir || 'asc' } : { createdAt: 'desc' as const };
+    const where: any = { deletedAt: null };
+    if (params?.search) {
+      where.OR = [
+        { username: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+        { displayName: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
     const [data, total] = await Promise.all([
       this.prisma.client.user.findMany({
+        where,
         skip,
-        take: limit,
-        where: { deletedAt: null },
+        take: pageSize,
+        orderBy,
         select: this.userSelect,
-        orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.client.user.count({ where: { deletedAt: null } }),
+      this.prisma.client.user.count({ where }),
     ]);
-
-    return { data: data.map((u) => this.formatUser(u)), total, page, limit };
+    return { data: data.map((u) => this.formatUser(u)), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   async findById(id: string) {
