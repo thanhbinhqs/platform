@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppDataGrid } from '../components/app-data-grid';
 import { toast } from '@platform/hooks';
@@ -9,11 +9,22 @@ export function RulesPage() {
   const [selection, setSelection] = useState<Item[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(15);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sorting, setSorting] = useState<any[]>([]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['rules', page, pageSize],
+    queryKey: ['rules', page, pageSize, debouncedSearch, sorting],
     queryFn: async () => {
-      const r = await fetch(`/api/v1/rules?page=${page + 1}&limit=${pageSize}`, {
+      const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
+      const r = await fetch(`/api/v1/rules?${params.toString()}`, {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }
       });
       const j = await r.json();
@@ -61,14 +72,21 @@ export function RulesPage() {
     setPageSize(p.pageSize);
   }, []);
 
+  const handleGlobalFilterChange = useCallback((value: string) => {
+    setSearch(value);
+    setPage(0);
+  }, []);
+
   const serverSide = useMemo(() => ({
     manualPagination: true as const,
-    manualSorting: false,
+    manualSorting: true as const,
     manualFiltering: false,
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
     onPaginationChange: handlePaginationChange,
-  }), [page, pageSize, data?.total, handlePaginationChange]);
+    onSortingChange: setSorting,
+    onGlobalFilterChange: handleGlobalFilterChange,
+  }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
   return (
     <div className="h-full flex flex-col">
