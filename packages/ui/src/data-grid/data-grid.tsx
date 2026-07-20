@@ -25,6 +25,9 @@ import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown, Download, Search,
   SlidersHorizontal, Eye, EyeOff, FileSpreadsheet,
 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { PaginationBar } from './pagination-bar';
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -140,6 +143,8 @@ export interface DataGridProps<TData> {
   /** Called when a cell value is saved via inline editing */  onCellSave?: (row: TData, columnId: string, value: unknown) => void;
   /** Enable virtual scrolling for large datasets (replaces pagination) */  enableVirtualScroll?: boolean;
   /** Row height in pixels for virtual scroll (default: 40) */  virtualRowHeight?: number;
+  /** Enable drag-and-drop row reordering */  enableRowDrag?: boolean;
+  /** Called when rows are reordered via drag-and-drop */  onRowReorder?: (fromIndex: number, toIndex: number) => void;
   onSelectionChange?: (rows: TData[]) => void;
   bulkActions?: ReactNode;
   actionButtons?: ReactNode;
@@ -433,6 +438,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   enableRowExpansion, renderRowDetail,
   enableInlineEditing, onCellSave,
   enableVirtualScroll, virtualRowHeight = 40,
+  enableRowDrag, onRowReorder,
   emptyMessage = 'No data found.', serverSide, classNames = {},
 }: DataGridProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -595,6 +601,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {enableRowNumber && <th data-sticky-id="row-number" className={`${den.cell} ${den.font} sticky text-center text-muted-foreground border-r border-b border-border`} style={{ left: 0, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 48, width: 48 }}>#</th>}
         {enableSelection && <th data-sticky-id="selection" className={`${den.cell} ${den.font} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 20, backgroundColor: 'var(--color-muted)', minWidth: 40, width: 40 }}><input type="checkbox" className="h-4 w-4" checked={table.getIsAllRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} /></th>}
         {enableRowExpansion && <th className={`${den.cell} ${den.font} text-center border-r border-b border-border text-muted-foreground`} style={{ width: 36, minWidth: 36, backgroundColor: 'var(--color-muted)' }}></th>}
+        {enableRowDrag && <th className={`${den.cell} ${den.font} text-center border-r border-b border-border text-muted-foreground`} style={{ width: 30, minWidth: 30, backgroundColor: 'var(--color-muted)' }}></th>}
         {hg.headers.map(h => {
           const m = h.column.columnDef.meta as ColumnMeta | undefined;
           const cs = enableSorting && h.column.getCanSort();
@@ -673,6 +680,25 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     </>);
   }
 
+  function DragHandle() {
+    return <span className="inline-flex cursor-grab active:cursor-grabbing mr-1 opacity-40 hover:opacity-80"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M4 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg></span>;
+  }
+
+  function DraggableRow({ row, rowIdx, children }: { row: Row<TData>; rowIdx: number; children: ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+    };
+    return (
+      <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
+        {children}
+      </tr>
+    );
+  }
+
   function renderRow(row: Row<TData>, rowIdx: number) {
     const isEven = rowIdx % 2 === 0;
     const isCtxRow = contextRowId === row.id;
@@ -682,62 +708,10 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         ? 'color-mix(in srgb, var(--color-accent) 80%, transparent)'
         : isEven ? 'var(--color-card)' : 'var(--color-muted)';
     return (
-      <>
-      <tr key={row.id}
-        className={`border-b transition-colors ${den.row} ${onRowClick ? 'cursor-pointer' : ''} ${classNames.row ?? ''}`}
-        style={{ backgroundColor: rowBg }}
-        onClick={() => onRowClick?.(row.original)}
-        onContextMenu={(e) => { e.preventDefault(); setContextRowId(row.id); onRowContextMenu?.(row.original, { x: e.clientX, y: e.clientY }); }}>
-        {enableRowNumber && <td data-sticky-id="row-number" className={`${den.cell} sticky text-center text-muted-foreground ${den.font} border-r border-b border-border`} style={{ left: 0, zIndex: 10, minWidth: 48, width: 48, backgroundColor: rowBg }}>{rowIdx + 1 + pageIndex * pSize}</td>}
-        {enableSelection && <td data-sticky-id="selection" className={`${den.cell} sticky text-center border-r border-b border-border`} style={{ left: selLeft, zIndex: 10, minWidth: 40, width: 40, backgroundColor: rowBg }}><input type="checkbox" className="h-4 w-4" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} onClick={e => e.stopPropagation()} /></td>}
-        {enableRowExpansion && (
-          <td className={`${den.cell} ${den.font} text-center border-r border-b border-border cursor-pointer`} style={{ width: 36, minWidth: 36, backgroundColor: rowBg }} onClick={() => toggleRowExpanded(row.id)}>
-            <ChevronRight size={14} className="inline-block transition-transform" style={{ transform: expandedRows.has(row.id) ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-          </td>
-        )}
-        {row.getVisibleCells().map((cell: Cell<TData, unknown>) => {
-          const m = cell.column.columnDef.meta as ColumnMeta | undefined;
-          const stickyAttr = getColStickyAttr(cell.column.id);
-          const cellRaw = (cell.column.columnDef as any).accessorKey ? (row.original as any)[(cell.column.columnDef as any).accessorKey] : undefined;
-          const valClass = (cellRaw !== undefined && m?.cellValueClass) ? (m.cellValueClass[String(cellRaw)] ?? '') : '';
-          const isEditing = enableInlineEditing && editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id;
-          const cellValue = (cell.column.columnDef as any).accessorKey ? (row.original as any)[(cell.column.columnDef as any).accessorKey] : undefined;
-          return (
-            <td key={cell.id} className={`${den.cell} ${den.font} border-r border-b border-border ${m?.align === 'right' ? 'text-right' : m?.align === 'center' ? 'text-center' : 'text-left'} ${m?.cellClass ?? ''} ${valClass} ${classNames.cell ?? ''} ${stickyAttr?.className ?? ''} ${enableInlineEditing && !isEditing ? 'cursor-pointer hover:bg-accent/30' : ''}`} style={{ ...(stickyAttr?.style ?? {}), backgroundColor: rowBg }}
-              onDoubleClick={() => { if (enableInlineEditing) { startEditing(row.id, cell.column.id, String(cellValue ?? '')); setTimeout(() => editInputRef.current?.focus(), 0); } }}>
-              {isEditing ? (
-                <input ref={editInputRef} type={m?.filterType === 'number' ? 'number' : 'text'}
-                  className="h-6 w-full rounded border bg-background px-1 text-xs outline-none focus:border-primary"
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
-                  onBlur={() => commitEdit(row.original, cell.column.id)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(row.original, cell.column.id); } else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); } }} />
-              ) : (
-                <span className="truncate block">{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
-              )}
-            </td>
-          );
-        })}
-        {renderRowActions && (
-          <td className={`${den.cell} ${den.font} border-r border-b border-border text-right whitespace-nowrap`} style={{ backgroundColor: rowBg }}>
-            {renderRowActions(row.original)}
-          </td>
-        )}
-      </tr>
-      {enableRowExpansion && renderRowDetail && expandedRows.has(row.id) && (
-        <tr className="border-b" style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 3%, transparent)' }}>
-          <td colSpan={
-            (enableRowNumber ? 1 : 0) +
-            (enableSelection ? 1 : 0) +
-            (enableRowExpansion ? 1 : 0) +
-            table.getVisibleFlatColumns().length +
-            (renderRowActions ? 1 : 0)
-          } className="px-4 py-2 text-xs">
-            {renderRowDetail(row.original)}
-          </td>
-        </tr>
-      )}
-      </>);
+      <DraggableRow row={row} rowIdx={rowIdx}>
+        {renderRowCells(row, rowIdx)}
+      </DraggableRow>
+    );
   }
 
   return (
@@ -837,23 +811,31 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         {!isLoading && !error && data.length > 0 && (
           <table className="w-full border border-border border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
             <thead className="sticky top-0 z-30">{table.getHeaderGroups().map(renderHead)}</thead>
-            <tbody style={enableVirtualScroll ? { height: virtualizer.getTotalSize(), position: 'relative' } : undefined}>
-              {enableVirtualScroll ? (
-                virtualRows.map(virtualRow => {
-                  const row = table.getRowModel().rows[virtualRow.index];
-                  if (!row) return null;
-                  return (
-                    <tr key={row.id}
-                      className={`border-b transition-colors ${den.row}`}
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: virtualRowHeight, transform: `translateY(${virtualRow.start}px)` }}>
-                      {renderRowCells(row, virtualRow.index)}
-                    </tr>
-                  );
-                })
-              ) : (
-                table.getRowModel().rows.map((row, idx) => renderRow(row, idx))
-              )}
-            </tbody>
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={({ active, over }) => { if (over && active.id !== over.id) onRowReorder?.(data.findIndex(r => (r as any).id === active.id), data.findIndex(r => (r as any).id === over.id)); }}>
+              <SortableContext items={data.map(r => String((r as any).id))} strategy={verticalListSortingStrategy}>
+              <tbody style={enableVirtualScroll ? { height: virtualizer.getTotalSize(), position: 'relative' } : undefined}>
+                {enableVirtualScroll ? (
+                  virtualRows.map(virtualRow => {
+                    const row = table.getRowModel().rows[virtualRow.index];
+                    if (!row) return null;
+                    const rowId = row.id;
+                    const { setNodeRef, transform, transition, isDragging } = useSortable({ id: rowId });
+                    const style: React.CSSProperties = { position: 'absolute', top: 0, left: 0, width: '100%', height: virtualRowHeight, transition, opacity: isDragging ? 0.4 : 1 };
+                    return (
+                      <tr ref={setNodeRef} key={rowId} style={style} className={`border-b transition-colors ${den.row}`}>
+                        {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
+                        {renderRowCells(row, virtualRow.index)}
+                      </tr>
+                    );
+                  })
+                ) : (
+                  table.getRowModel().rows.map((row, idx) => renderRow(row, idx))
+                )}
+              </tbody>
+              </SortableContext>
+            </DndContext>
             {showFooter && (() => {
               const visibleCols = table.getVisibleFlatColumns();
               const rows = table.getRowModel().rows;
