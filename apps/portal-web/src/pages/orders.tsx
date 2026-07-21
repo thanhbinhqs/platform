@@ -2,7 +2,8 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { FileText, Trash } from 'lucide-react';
+import { Trash, FileText } from 'lucide-react';
+import { Eye, Pencil, XCircle } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
@@ -37,6 +38,20 @@ export function OrdersPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/sales/orders', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); toast.success('Order created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/sales/orders/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); toast.success('Orders cancelled'); }, onError: (e: Error) => toast.error(e.message) });
+  const contextMenuItems = useMemo(() => [
+    { label: 'View', icon: <Eye size={14} />, action: 'view' },
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Cancel', icon: <XCircle size={14} />, action: 'cancel', disabled: (r: any) => r.status === 'CANCELLED' || r.status === 'DELIVERED' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'view': toast.info(`View $orders: ${row.name || row.id}`); break;
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'cancel': toast.info(`Cancel: ${row.name || row.id}`); break;
+    }
+  }, [bulkDeleteMutation]);
+
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'orderNumber', header: 'Order #' }, { accessorKey: 'customerName', header: 'Customer' },
@@ -73,7 +88,7 @@ export function OrdersPage() {
     globalFilter: search,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Orders</h1>
       <Button onClick={() => { setDialogOpen(true); }}><FileText size={16} className="mr-1" /> Add Order</Button></div>
@@ -82,7 +97,8 @@ export function OrdersPage() {
       serverSide={serverSide}
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Cancel', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Cancel ${ids.length} orders?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />} />
+      ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
       title="Create Order" fields={formFields} initialValues={{}}
       onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />

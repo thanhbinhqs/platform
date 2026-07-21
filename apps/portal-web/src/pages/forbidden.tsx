@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldAlert, Home } from 'lucide-react';
+import { Home, ShieldAlert } from 'lucide-react';
 
 export function ForbiddenPage() {
   return (

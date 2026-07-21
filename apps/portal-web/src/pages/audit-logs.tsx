@@ -1,4 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
+import { toast } from '@platform/hooks';
+import { Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton } from '@platform/ui';
 interface Item { id: string; user: any; action: string; entity: string; entityId: string; createdAt: string; [key: string]: unknown; }
@@ -26,6 +28,16 @@ export function AuditLogsPage() {
       return { items: (d?.data || d || []) as Item[], total: d?.total || 0 };
     },
   });
+  const contextMenuItems = useMemo(() => [
+    { label: 'View Details', icon: <Eye size={14} />, action: 'view' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'view': toast.info(`View details: ${row.name || row.id}`); break;
+    }
+  }, []);
+
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'user', header: 'User', cell: ({ getValue }) => (getValue() as any)?.username || '—' },
     { accessorKey: 'action', header: 'Action' },
@@ -56,10 +68,12 @@ export function AuditLogsPage() {
     globalFilter: search,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden"><h1 className="text-2xl font-bold">Audit Logs</h1>
     <DataGrid enableSearch columns={columns} data={data?.items || []} title="Audit Logs" enableSorting enableColumnVisibility enableExport enableDensity pageSize={pageSize} pageSizeOptions={[10, 20, 50, 100]} emptyMessage="No audit logs found."
       total={data?.total || 0}
-      serverSide={serverSide} />
+      serverSide={serverSide}
+      contextMenuItems={contextMenuItems}
+      onContextMenuAction={handleContextMenuAction} />
   </div>);
 }

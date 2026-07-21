@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { ShieldPlus, Shield, Pencil, Trash2, Trash } from 'lucide-react';
+import { Pencil, Shield, ShieldPlus, Trash, Trash2 } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions, type BulkAction } from '../components/bulk-actions';
 
@@ -41,6 +41,21 @@ export function RolesPage() {
   const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/roles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role updated'); }, onError: (e: Error) => toast.error(e.message) });
   const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/roles/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role deleted'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/roles/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Roles deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const contextMenuItems = useMemo(() => [
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Duplicate', icon: <ShieldPlus size={14} />, action: 'duplicate' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete', disabled: (r: any) => r.isSystem === true },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'duplicate': toast.info(`Duplicate: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+    }
+  }, [bulkDeleteMutation]);
+
 
   const columns = useMemo<DataGridColumn<Role>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
@@ -49,7 +64,7 @@ export function RolesPage() {
     { accessorKey: 'createdAt', header: 'Created', cell: ({ getValue }) => new Date(getValue() as string).toLocaleDateString() },
     { id: 'actions', header: '', cell: ({ row }) => (
       <div className="flex gap-1">
-        <button className="p-1 hover:text-primary" title="Edit" onClick={() => { setEditRole(row.original); setDialogOpen(true); }}><Pencil size={14} /></button>
+        <button className="p-1 hover:text-primary" title="Edit" onClick={() => { setEditRole(row.original); setDialogOpen(true); }}><Pencil size={14}  /></button>
         <button className="p-1 hover:text-red-500" title="Delete" onClick={() => setDeleteRole(row.original)} disabled={row.original.isSystem}><Trash2 size={14} /></button>
       </div>
     )},
@@ -96,7 +111,8 @@ export function RolesPage() {
       serverSide={serverSide}
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} roles? (system roles skipped)`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />} />
+      ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditRole(null); }}
       title={editRole ? `Edit Role: ${editRole.name}` : 'Create Role'}
       fields={formFields} initialValues={editRole || {}}

@@ -43,9 +43,9 @@ interface TableAction {
 
 /** Context menu item definition */
 interface ContextMenuItem {
-  label: string;
+  label?: string;
   icon?: ReactNode;
-  action: string;
+  action?: string;
   /** Required permission — item hidden if user lacks it */
   permission?: string | string[];
   /** Disable condition (checked per row) */
@@ -497,7 +497,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
             }
             onRowClick?.(row);
           }}
-          onRowContextMenu={(row, pos) => setCtxMenu({ ...pos, row })}
+          onRowContextMenu={(row: any, pos: { x: number; y: number }) => setCtxMenu({ ...pos, row })}
           onSelectionChange={handleSelectionChange}
           emptyMessage={emptyMessage}
           isLoading={loading}
@@ -519,7 +519,8 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                   role="menuitem"
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
                   onClick={() => {
-                    handleCtxAction(item.action, ctxMenu.row);
+                    const action = item.action;
+                    if (action) handleCtxAction(action, ctxMenu.row);
                   }}>
                   {item.icon && <span className="text-base">{item.icon}</span>}
                   {item.label}

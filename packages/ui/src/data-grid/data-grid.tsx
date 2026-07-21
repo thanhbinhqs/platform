@@ -135,6 +135,10 @@ export interface DataGridProps<TData> {
   onRowClick?: (row: TData) => void;
   /** Right-click on a row — position is clientX/clientY for context menu placement */
   onRowContextMenu?: (row: TData, position: { x: number; y: number }) => void;
+  /** Enable built-in right-click context menu with these items */
+  contextMenuItems?: ContextMenuItem[];
+  /** Called when a context menu action is triggered */
+  onContextMenuAction?: (action: string, row: TData) => void;
   /** Render action buttons for each row */  renderRowActions?: (row: TData) => ReactNode;
   /** Extra elements in the header toolbar (left side) */  toolbarNodes?: ReactNode;
   /** Table container max-height (default: 100%) */  maxHeight?: string;
@@ -167,6 +171,16 @@ export interface DataGridProps<TData> {
     globalFilter?: string;
   };
   classNames?: { wrapper?: string; table?: string; header?: string; row?: string; cell?: string };
+}
+
+// ─── Context Menu Types ──────────────────────────────────────
+
+export interface ContextMenuItem {
+  label?: string;
+  icon?: ReactNode;
+  action?: string;
+  disabled?: boolean | ((row: Record<string, unknown>) => boolean);
+  divider?: boolean;
 }
 
 // ─── Density config ────────────────────────────────────────────────
@@ -437,7 +451,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
   columnStickyState: extColSticky, onColumnStickyChange: extOnColStickyChange,
-  onRowClick, onRowContextMenu, onSelectionChange, bulkActions, actionButtons, renderRowActions, toolbarNodes, maxHeight = '100%',
+  onRowClick, onRowContextMenu, contextMenuItems, onContextMenuAction, onSelectionChange, bulkActions, actionButtons, renderRowActions, toolbarNodes, maxHeight = '100%',
   enableRowExpansion, renderRowDetail,
   enableInlineEditing, onCellSave,
   enableVirtualScroll, virtualRowHeight = 40,
@@ -481,6 +495,17 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   const [showDenMenu, setShowDenMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [contextRowId, setContextRowId] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ row: TData; x: number; y: number } | null>(null);
+
+  const handleRowContextMenu = useCallback((row: Row<TData>, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextRowId(row.id);
+    const pos = { x: e.clientX, y: e.clientY };
+    onRowContextMenu?.(row.original, pos);
+    if (contextMenuItems) {
+      setCtxMenu({ row: row.original, x: e.clientX, y: e.clientY });
+    }
+  }, [onRowContextMenu, contextMenuItems]);
   const [columnStickyInternal, setColumnStickyInternal] = useState<Record<string, 'left' | 'right' | null>>({});
   const columnSticky = extColSticky ?? columnStickyInternal;
   const setColumnSticky = extOnColStickyChange ?? setColumnStickyInternal;
@@ -728,7 +753,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
     return <span className="inline-flex cursor-grab active:cursor-grabbing mr-1 opacity-40 hover:opacity-80"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M4 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm0 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg></span>;
   }
 
-  function DraggableRow({ row, rowIdx, children }: { row: Row<TData>; rowIdx: number; children: ReactNode }) {
+  function DraggableRow({ row, rowIdx, children, onContextMenu }: { row: Row<TData>; rowIdx: number; children: ReactNode; onContextMenu?: (e: React.MouseEvent) => void }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
     const style: React.CSSProperties = {
       transform: CSS.Transform.toString(transform),
@@ -736,7 +761,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       opacity: isDragging ? 0.4 : 1,
     };
     return (
-      <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <tr ref={setNodeRef} style={style} {...attributes} {...listeners} onContextMenu={onContextMenu}>
         {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
         {children}
       </tr>
@@ -751,7 +776,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
       transition, opacity: isDragging ? 0.4 : 1
     };
     return (
-      <tr ref={setNodeRef} key={rowId} style={style} className={`border-b transition-colors ${den.row}`}>
+      <tr ref={setNodeRef} key={rowId} style={style} className={`border-b transition-colors ${den.row}`} onContextMenu={(e) => handleRowContextMenu(row, e)}>
         {enableRowDrag && <td className={`${den.cell} ${den.font} border-r border-b border-border text-center align-middle`} style={{ width: 30, minWidth: 30 }}><DragHandle /></td>}
         {renderRowCells(row, virtualRow.index)}
       </tr>
@@ -767,7 +792,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         ? 'color-mix(in srgb, var(--color-accent) 80%, transparent)'
         : isEven ? 'var(--color-card)' : 'var(--color-muted)';
     return (
-      <DraggableRow row={row} rowIdx={rowIdx}>
+      <DraggableRow row={row} rowIdx={rowIdx} onContextMenu={(e) => handleRowContextMenu(row, e)}>
         {renderRowCells(row, rowIdx)}
       </DraggableRow>
     );
@@ -939,6 +964,21 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
         )}
       </div>
 
+      {/* ── Context Menu ── */}
+      {contextMenuItems && ctxMenu && (
+        <CtxMenu
+          items={contextMenuItems}
+          row={ctxMenu.row}
+          position={{ x: ctxMenu.x, y: ctxMenu.y }}
+          onClose={() => { setCtxMenu(null); setContextRowId(null); }}
+          onAction={(action, r) => {
+            onContextMenuAction?.(action, ctxMenu!.row as any);
+            setCtxMenu(null);
+            setContextRowId(null);
+          }}
+        />
+      )}
+
       {/* ── Pagination ── */}
       {!isLoading && !error && data.length > 0 && (
         <PaginationBar
@@ -951,6 +991,66 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           className="relative z-30"
         />
       )}
+    </div>
+  );
+}
+
+// ─── Context Menu Component ──────────────────────────────────────
+
+function CtxMenu({ items, row, position, onClose, onAction }: {
+  items: ContextMenuItem[];
+  row: Record<string, unknown>;
+  position: { x: number; y: number };
+  onClose: () => void;
+  onAction: (action: string, row: Record<string, unknown>) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  // Adjust position to stay within viewport
+  const adjustedPos = { ...position };
+  if (typeof window !== 'undefined') {
+    const menuW = 180;
+    const menuH = items.length * 32 + 16;
+    if (adjustedPos.x + menuW > window.innerWidth) adjustedPos.x = window.innerWidth - menuW - 8;
+    if (adjustedPos.y + menuH > window.innerHeight) adjustedPos.y = window.innerHeight - menuH - 8;
+  }
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: 'fixed', left: adjustedPos.x, top: adjustedPos.y, zIndex: 9999 }}
+      className="min-w-[180px] rounded-lg border bg-card py-1 shadow-xl"
+      role="menu"
+    >
+      {items.map((item, i) => {
+        const disabled = typeof item.disabled === 'function' ? item.disabled(row) : item.disabled;
+        return (
+          <div key={i}>
+            {item.divider && <div className="my-1 border-t" />}
+            <button
+              role="menuitem"
+              disabled={disabled}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-accent'
+              }`}
+              onClick={() => { if (!disabled && !item.divider && item.action) { onAction(item.action, row); } }}
+            >
+              {item.icon && <span className="text-base">{item.icon}</span>}
+              {item.label}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

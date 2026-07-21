@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Flag, Trash, ToggleLeft } from 'lucide-react';
+import { Trash, Flag, ToggleLeft, Pencil, Trash2 } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
@@ -41,6 +41,21 @@ export function FeatureFlagsPage() {
   const bulkEnableMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/feature-flags/bulk/enable', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['feature-flags'] }); toast.success('Flags enabled'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDisableMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/feature-flags/bulk/disable', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['feature-flags'] }); toast.success('Flags disabled'); }, onError: (e: Error) => toast.error(e.message) });
 
+  const contextMenuItems = useMemo(() => [
+    { label: 'Toggle', icon: <ToggleLeft size={14} />, action: 'toggle' },
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+    }
+  }, [bulkDeleteMutation]);
+
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'isEnabled', header: 'Active', cell: ({ getValue }) => getValue() ? '✅' : '❌' },
@@ -76,7 +91,7 @@ export function FeatureFlagsPage() {
     globalFilter: search,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Feature Flags</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Flag size={16} className="mr-1" /> Add Flag</Button></div>
@@ -87,7 +102,8 @@ export function FeatureFlagsPage() {
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} flags?`)) bulkDeleteMutation.mutate(ids); } },
         { label: 'Enable', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkEnableMutation.mutate(ids) },
         { label: 'Disable', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDisableMutation.mutate(ids) },
-      ]} />} />
+      ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
       title="Create Feature Flag" fields={formFields} initialValues={{ isEnabled: false }}
       onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />

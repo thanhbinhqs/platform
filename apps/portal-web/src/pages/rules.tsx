@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppDataGrid } from '../components/app-data-grid';
 import { toast } from '@platform/hooks';
+import { Trash2, Pencil, ToggleLeft } from 'lucide-react';
 
 interface Item { id: string; name: string; event: string; status: string; priority: number; createdAt: string; [key: string]: unknown; }
 
@@ -88,6 +89,21 @@ export function RulesPage() {
     onGlobalFilterChange: handleGlobalFilterChange,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
+  const contextMenuItems = useMemo(() => [
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Toggle Active', icon: <ToggleLeft size={14} />, action: 'toggle' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
+      case 'delete': toast.info(`Delete: ${row.name || row.id}`); break;
+    }
+  }, []);
+
   return (
     <div className="h-full flex flex-col">
       <AppDataGrid
@@ -111,6 +127,8 @@ export function RulesPage() {
         emptyMessage="No rules found."
         loading={isLoading}
         serverSide={serverSide}
+        contextMenuItems={contextMenuItems}
+        onContextMenuAction={handleContextMenuAction}
       />
     </div>
   );

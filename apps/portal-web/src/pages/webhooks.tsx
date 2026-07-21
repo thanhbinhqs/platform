@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Pencil, Trash2, Webhook, Trash } from 'lucide-react';
+import { Trash, Trash2, Pencil, ToggleLeft, Webhook } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
@@ -41,6 +41,23 @@ export function WebhooksPage() {
   const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/webhooks/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); toast.success('Webhook deleted'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/webhooks/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); toast.success('Webhooks deleted'); }, onError: (e: Error) => toast.error(e.message) });
 
+  const contextMenuItems = useMemo(() => [
+    { label: 'Test Webhook', icon: <Webhook size={14} />, action: 'test' },
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Toggle Active', icon: <ToggleLeft size={14} />, action: 'toggle' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'test': toast.info(`Test: ${row.name || row.id}`); break;
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+    }
+  }, [bulkDeleteMutation]);
+
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'url', header: 'URL', cell: ({ getValue }) => <span className='text-xs font-mono'>{getValue() as string}</span> },
@@ -48,7 +65,7 @@ export function WebhooksPage() {
     { accessorKey: 'createdAt', header: 'Created', cell: ({ getValue }) => new Date(getValue() as string).toLocaleDateString() },
     { id: 'actions', header: '', cell: ({ row }) => (
       <div className="flex gap-1">
-        <button className="p-1 hover:text-primary transition-colors" title="Edit" onClick={() => { setEditItem(row.original); setDialogOpen(true); }}><Pencil size={14} /></button>
+        <button className="p-1 hover:text-primary transition-colors" title="Edit" onClick={() => { setEditItem(row.original); setDialogOpen(true); }}><Pencil size={14}  /></button>
         <button className="p-1 hover:text-red-500 transition-colors" title="Delete" onClick={() => setDeleteItem(row.original)}><Trash2 size={14} /></button>
       </div>
     )},
@@ -93,7 +110,8 @@ export function WebhooksPage() {
       serverSide={serverSide}
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} webhooks?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />} />
+      ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
       title={editItem ? `Edit Webhook: ${editItem.name}` : 'Create Webhook'}
       fields={formFields} initialValues={editItem || { isActive: true }}

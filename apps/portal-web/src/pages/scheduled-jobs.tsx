@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Play, Clock, Trash } from 'lucide-react';
+import { Clock, Pencil, Play, Trash, Trash2 } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
@@ -39,6 +39,21 @@ export function ScheduledJobsPage() {
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/scheduled-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['scheduled-jobs'] }); toast.success('Job created'); }, onError: (e: Error) => toast.error(e.message) });
   const triggerMutation = useMutation({ mutationFn: async (jobId: string) => { const r = await fetch('/api/v1/scheduled-jobs/trigger', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ jobId }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { toast.success('Job triggered'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/scheduled-jobs/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['scheduled-jobs'] }); toast.success('Jobs deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const contextMenuItems = useMemo(() => [
+    { label: 'Run Now', icon: <Play size={14} />, action: 'run', disabled: (r: any) => r.status === 'RUNNING' },
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'run': toast.info(`Run: ${row.name || row.id}`); break;
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+    }
+  }, [bulkDeleteMutation]);
+
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
@@ -46,7 +61,7 @@ export function ScheduledJobsPage() {
     { accessorKey: 'cronExpression', header: 'Cron' },
     { accessorKey: 'isActive', header: 'Active', cell: ({ getValue }) => getValue() ? '✅' : '❌' },
     { id: 'actions', header: '', cell: ({ row }) => (
-      <button className="p-1 hover:text-primary transition-colors" title="Trigger Now" onClick={() => triggerMutation.mutate(row.original.id)}><Play size={14} /></button>
+      <button className="p-1 hover:text-primary transition-colors" title="Trigger Now" onClick={() => triggerMutation.mutate(row.original.id)}><Play size={14}  /></button>
     )},
   ], [triggerMutation]);
 
@@ -89,7 +104,8 @@ export function ScheduledJobsPage() {
       serverSide={serverSide}
       bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} jobs?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />} />
+      ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
       title="Create Scheduled Job" fields={formFields} initialValues={{ isActive: true, type: 'SCRIPT' }}
       onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />

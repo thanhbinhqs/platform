@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@platform/ui';
 import apiClient from '@platform/api-client';
-import { Package, Users, ShoppingCart, AlertTriangle, TrendingUp, Activity } from 'lucide-react';
+import { Activity, AlertTriangle, Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 
 interface StatCard {
   title: string;

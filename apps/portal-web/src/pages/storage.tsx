@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { HardDrive } from 'lucide-react';
+import { Download, Eye, HardDrive, Trash2 } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 
 interface Item { id: string; name: string; provider: string; isPublic: boolean; createdAt: string; [key: string]: unknown; }
@@ -35,6 +35,21 @@ export function StoragePage() {
     },
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/storage/buckets', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['storage-buckets'] }); toast.success('Bucket created'); }, onError: (e: Error) => toast.error(e.message) });
+  const contextMenuItems = useMemo(() => [
+    { label: 'View', icon: <Eye size={14} />, action: 'view' },
+    { label: 'Download', icon: <Download size={14} />, action: 'download' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'view': toast.info(`View $storage: ${row.name || row.id}`); break;
+      case 'download': toast.info(`Download: ${row.name || row.id}`); break;
+      case 'delete': toast.info(`Delete: ${row.name || row.id}`); break;
+    }
+  }, [setDialogOpen]);
+
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
@@ -71,13 +86,15 @@ export function StoragePage() {
     globalFilter: search,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Storage</h1>
       <Button onClick={() => setDialogOpen(true)}><HardDrive size={16} className="mr-1" /> Create Bucket</Button></div>
     <DataGrid enableSearch columns={columns} data={data?.items || []} title="Storage" enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No storage found."
       total={data?.total || 0}
-      serverSide={serverSide} />
+      serverSide={serverSide}
+      contextMenuItems={contextMenuItems}
+      onContextMenuAction={handleContextMenuAction} />
     <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
       title="Create Storage Bucket" fields={formFields} initialValues={{ provider: 'LOCAL', isPublic: false }}
       onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />

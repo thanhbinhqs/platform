@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Pencil, Trash2, Key, ToggleLeft, UserPlus, Trash } from 'lucide-react';
+import { Trash, Trash2, Key, Pencil, ToggleLeft, UserPlus } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions, type BulkAction } from '../components/bulk-actions';
 
@@ -51,6 +51,23 @@ export function UsersPage() {
 
   const roleOptions = useMemo(() => (roles || []).map((r: any) => ({ label: r.name, value: r.id })), [roles]);
 
+  const contextMenuItems = useMemo(() => [
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Reset Password', icon: <Key size={14} />, action: 'reset-password' },
+    { label: 'Toggle Active', icon: <ToggleLeft size={14} />, action: 'toggle-active' },
+    { divider: true },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+    const handleContextMenuAction = useCallback((action: string, row: any) => {
+    switch (action) {
+      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
+      case 'reset-password': toast.info(`Reset password: ${row.name || row.id}`); break;
+      case 'toggle-active': toast.info(`Toggle: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+    }
+  }, [bulkDeleteMutation]);
+
   const columns = useMemo<DataGridColumn<User>[]>(() => [
     { accessorKey: 'username', header: 'Username' },
     { accessorKey: 'email', header: 'Email' },
@@ -62,7 +79,7 @@ export function UsersPage() {
       const u = row.original;
       return (
         <div className="flex gap-1">
-          <button className="p-1 hover:text-primary" title="Edit" onClick={() => { setEditItem(u); setDialogOpen(true); }}><Pencil size={14} /></button>
+          <button className="p-1 hover:text-primary" title="Edit" onClick={() => { setEditItem(u); setDialogOpen(true); }}><Pencil size={14}  /></button>
           <button className="p-1 hover:text-amber-500" title="Reset Password" onClick={() => setResetPwdItem(u)}><Key size={14} /></button>
           <button className="p-1 hover:text-purple-500" title="Toggle Status" onClick={() => toggleStatusMutation.mutate({ id: u.id, isActive: u.isActive }) }><ToggleLeft size={14} /></button>
           <button className="p-1 hover:text-red-500" title="Delete" onClick={() => setDeleteItem(u)}><Trash2 size={14} /></button>
@@ -117,7 +134,8 @@ export function UsersPage() {
           { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); }, variant: 'destructive' },
           { label: 'Activate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkActivateMutation.mutate(ids) },
           { label: 'Deactivate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDeactivateMutation.mutate(ids) },
-        ]} />} />
+        ]} />}
+        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
 
       {/* Create/Edit Dialog */}
       <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
