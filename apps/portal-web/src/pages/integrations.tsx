@@ -17,6 +17,8 @@ export function IntegrationsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -37,6 +39,9 @@ export function IntegrationsPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/integrations', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['integrations'] }); toast.success('Integration created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/integrations/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['integrations'] }); toast.success('Integrations disconnected'); }, onError: (e: Error) => toast.error(e.message) });
+  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/integrations/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['integrations'] }); toast.success('Integration updated'); }, onError: (e: Error) => toast.error(e.message) });
+  const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/integrations/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['integrations'] }); toast.success('Integration deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const toggleIntegration = useCallback((row: Item) => { toast.info(`Toggle integration: ${row.name}`); }, []);
 
   const contextMenuItems = useMemo(() => [
     { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
@@ -45,13 +50,13 @@ export function IntegrationsPage() {
     { label: 'Delete', icon: <Trash size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'toggle': toggleIntegration(row); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [setEditItem, setDialogOpen, toggleIntegration, setDeleteItem]);
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' }, { accessorKey: 'type', header: 'Type' },
@@ -98,8 +103,9 @@ export function IntegrationsPage() {
         { label: 'Disconnect', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Disconnect ${ids.length} integrations?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Integration" fields={formFields} initialValues={{}}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+        <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Integration" : "Integration"} fields={formFields}
+      initialValues={editItem || {}}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
   </div>);
 }

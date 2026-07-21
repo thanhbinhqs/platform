@@ -18,6 +18,7 @@ export function WorkflowsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -38,6 +39,7 @@ export function WorkflowsPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/workflows', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['workflows'] }); toast.success('Workflow created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/workflows/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['workflows'] }); toast.success('Workflows deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/workflows/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['workflows'] }); toast.success('Workflow updated'); }, onError: (e: Error) => toast.error(e.message) });
   const contextMenuItems = useMemo(() => [
     { label: 'Run', icon: <Play size={14} />, action: 'run', disabled: (r: any) => r.status === 'RUNNING' },
     { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
@@ -45,13 +47,13 @@ export function WorkflowsPage() {
     { label: 'Archive', icon: <Archive size={14} />, action: 'archive', disabled: (r: any) => r.status === 'ARCHIVED' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'run': toast.info(`Run: ${row.name || row.id}`); break;
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'archive': toast.info(`Archive: ${row.name || row.id}`); break;
+      case 'run': toast.info(`Run workflow: ${row.name}`); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'archive': if (confirm(`Archive workflow ${row.name}?`)) bulkDeleteMutation.mutate([row.id]); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [bulkDeleteMutation, toast]);
 
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
@@ -98,8 +100,9 @@ export function WorkflowsPage() {
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} workflows?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Workflow" fields={formFields} initialValues={{ status: 'DRAFT' }}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Workflow" : "Create Workflow"} fields={formFields}
+      initialValues={editItem || { status: 'DRAFT' }}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
   </div>);
 }

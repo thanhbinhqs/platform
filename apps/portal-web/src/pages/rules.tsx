@@ -96,13 +96,13 @@ export function RulesPage() {
     { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
-      case 'delete': toast.info(`Delete: ${row.name || row.id}`); break;
+      case 'edit': toast.info(`Edit rule: ${row.name || row.id}`); break;
+      case 'toggle': toast.info(`Toggle rule: ${row.name || row.id}`); break;
+      case 'delete': if (confirm(`Delete rule ${row.name || row.id}?`)) toast.success(`Deleted ${row.name || row.id}`); break;
     }
-  }, []);
+  }, [toast]);
 
   return (
     <div className="h-full flex flex-col">

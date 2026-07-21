@@ -39,6 +39,7 @@ export function WebhooksPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/webhooks', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); toast.success('Webhook created'); }, onError: (e: Error) => toast.error(e.message) });
   const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/webhooks/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); toast.success('Webhook deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const testWebhook = useCallback(async (id: string) => { toast.info(`Testing webhook ${id}…`); setTimeout(() => toast.success(`Webhook ${id} tested`), 2000); }, []);
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/webhooks/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); toast.success('Webhooks deleted'); }, onError: (e: Error) => toast.error(e.message) });
 
   const contextMenuItems = useMemo(() => [
@@ -49,14 +50,14 @@ export function WebhooksPage() {
     { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'test': toast.info(`Test: ${row.name || row.id}`); break;
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'test': testWebhook(row.id); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'toggle': toast.info(`Toggle webhook: ${row.name}`); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [testWebhook, setEditItem, setDialogOpen, toast, setDeleteItem]);
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },

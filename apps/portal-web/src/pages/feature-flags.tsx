@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
 import { Trash, Flag, ToggleLeft, Pencil, Trash2 } from 'lucide-react';
-import { CrudDialog, type CrudField } from '../components/crud-dialog';
+import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
 interface Item { id: string; name: string; isEnabled: boolean; description?: string; createdAt: string; [key: string]: unknown; }
@@ -17,6 +17,8 @@ export function FeatureFlagsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -40,6 +42,7 @@ export function FeatureFlagsPage() {
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/feature-flags/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['feature-flags'] }); toast.success('Flags deleted'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkEnableMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/feature-flags/bulk/enable', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['feature-flags'] }); toast.success('Flags enabled'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDisableMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/feature-flags/bulk/disable', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['feature-flags'] }); toast.success('Flags disabled'); }, onError: (e: Error) => toast.error(e.message) });
+  const toggleFlag = useCallback((row: Item) => { if (confirm(`Toggle flag ${row.name}?`)) bulkDeleteMutation.mutate([row.id]); }, [bulkDeleteMutation]);
 
   const contextMenuItems = useMemo(() => [
     { label: 'Toggle', icon: <ToggleLeft size={14} />, action: 'toggle' },
@@ -48,13 +51,13 @@ export function FeatureFlagsPage() {
     { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'toggle': toast.info(`Toggle: ${row.name || row.id}`); break;
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'toggle': toggleFlag(row); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [toggleFlag, setEditItem, setDialogOpen, setDeleteItem]);
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' },
@@ -104,8 +107,13 @@ export function FeatureFlagsPage() {
         { label: 'Disable', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDisableMutation.mutate(ids) },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Feature Flag" fields={formFields} initialValues={{ isEnabled: false }}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Feature Flag" : "Create Feature Flag"} fields={formFields}
+      initialValues={editItem || { isEnabled: false }}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+    <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+      title="Delete Feature Flag" message={`Are you sure you want to delete ${deleteItem?.name}?`}
+      onConfirm={async () => { await bulkDeleteMutation.mutateAsync([deleteItem!.id]); setDeleteItem(null); }}
+      isPending={bulkDeleteMutation.isPending} />
   </div>);
 }

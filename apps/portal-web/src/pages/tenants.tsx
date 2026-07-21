@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
 import { Trash, Building2, Pencil } from 'lucide-react';
-import { CrudDialog, type CrudField } from '../components/crud-dialog';
+import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
 interface Item { id: string; name: string; domain?: string; isActive: boolean; plan?: string; createdAt: string; [key: string]: unknown; }
@@ -17,6 +17,8 @@ export function TenantsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -37,19 +39,20 @@ export function TenantsPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['tenants'] }); toast.success('Tenant created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/tenants/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['tenants'] }); toast.success('Tenants deleted'); }, onError: (e: Error) => toast.error(e.message) });
-
+  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/tenants/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['tenants'] }); toast.success('Tenant updated'); }, onError: (e: Error) => toast.error(e.message) });
+  const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/tenants/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['tenants'] }); toast.success('Tenant deleted'); }, onError: (e: Error) => toast.error(e.message) });
   const contextMenuItems = useMemo(() => [
     { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
     { divider: true },
     { label: 'Delete', icon: <Trash size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [setEditItem, setDialogOpen, setDeleteItem]);
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'name', header: 'Name' }, { accessorKey: 'domain', header: 'Domain' },
@@ -96,8 +99,13 @@ export function TenantsPage() {
         { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} tenants?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Tenant" fields={formFields} initialValues={{ isActive: true, plan: 'FREE' }}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Tenant" : "Create Tenant"} fields={formFields}
+      initialValues={editItem || { isActive: true, plan: 'FREE' }}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+    <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+      title="Delete Tenant" message={`Are you sure you want to delete tenant ${deleteItem?.name}?`}
+      onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }}
+      isPending={deleteMutation.isPending} />
   </div>);
 }

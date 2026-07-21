@@ -16,6 +16,7 @@ export function StoragePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -42,13 +43,13 @@ export function StoragePage() {
     { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'view': toast.info(`View $storage: ${row.name || row.id}`); break;
-      case 'download': toast.info(`Download: ${row.name || row.id}`); break;
-      case 'delete': toast.info(`Delete: ${row.name || row.id}`); break;
+      case 'view': toast.info(`View bucket: ${row.name || row.id}`); break;
+      case 'download': toast.info(`Download bucket: ${row.name || row.id}`); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [setDialogOpen]);
+  }, [toast]);
 
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [

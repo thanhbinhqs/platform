@@ -48,13 +48,13 @@ export function RolesPage() {
     { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete', disabled: (r: any) => r.isSystem === true },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'duplicate': toast.info(`Duplicate: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'edit': setEditRole(row); setDialogOpen(true); break;
+      case 'duplicate': toast.info(`Duplicate role: ${row.name}`); break;
+      case 'delete': setDeleteRole(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [setDeleteRole, setEditRole, toast]);
 
 
   const columns = useMemo<DataGridColumn<Role>[]>(() => [

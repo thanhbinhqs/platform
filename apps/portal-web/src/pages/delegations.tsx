@@ -44,13 +44,13 @@ export function DelegationsPage() {
     { label: 'Retry', icon: <RefreshCw size={14} />, action: 'retry', disabled: (r: any) => r.status !== 'FAILED' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'view': toast.info(`View $delegations: ${row.name || row.id}`); break;
-      case 'revoke': if (confirm(`Revoke ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
-      case 'retry': toast.info(`retry: ${row.name || row.id}`); break;
+      case 'view': toast.info(`View delegation: ${row.name || row.id}`); break;
+      case 'revoke': if (confirm(`Revoke delegation ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'retry': toast.info(`Retry delegation: ${row.name || row.id}`); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [bulkDeleteMutation, toast]);
 
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [

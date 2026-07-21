@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
 import { Package, Pencil, Trash } from 'lucide-react';
-import { CrudDialog, type CrudField } from '../components/crud-dialog';
+import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
 
 interface Item { id: string; name: string; sku: string; price: number; stock: number; status: string; createdAt: string; [key: string]: unknown; }
@@ -17,6 +17,8 @@ export function ProductsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -37,6 +39,9 @@ export function ProductsPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/sales/products', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/sales/products/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Products archived'); }, onError: (e: Error) => toast.error(e.message) });
+  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/sales/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product updated'); }, onError: (e: Error) => toast.error(e.message) });
+  const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/sales/products/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product deleted'); }, onError: (e: Error) => toast.error(e.message) });
+  const archiveProduct = useCallback((row: Item) => { if (confirm(`Archive product ${row.name}?`)) bulkDeleteMutation.mutate([row.id]); }, [bulkDeleteMutation]);
   const contextMenuItems = useMemo(() => [
     { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
     { label: 'Archive', icon: <Package size={14} />, action: 'archive', disabled: (r: any) => r.status === 'ARCHIVED' },
@@ -44,13 +49,13 @@ export function ProductsPage() {
     { label: 'Delete', icon: <Trash size={14} />, action: 'delete' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'archive': toast.info(`Archive: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'archive': archiveProduct(row); break;
+      case 'delete': setDeleteItem(row); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [setEditItem, setDialogOpen, archiveProduct, setDeleteItem]);
 
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
@@ -98,8 +103,13 @@ export function ProductsPage() {
         { label: 'Archive', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Archive ${ids.length} products?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Product" fields={formFields} initialValues={{ price: 0, stock: 0 }}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Product" : "Create Product"} fields={formFields}
+      initialValues={editItem || { price: 0, stock: 0 }}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+    <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+      title="Delete Product" message={`Are you sure you want to delete ${deleteItem?.name}?`}
+      onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }}
+      isPending={deleteMutation.isPending} />
   </div>);
 }

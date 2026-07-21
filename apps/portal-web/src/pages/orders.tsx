@@ -18,6 +18,7 @@ export function OrdersPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<Item | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -38,19 +39,20 @@ export function OrdersPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/sales/orders', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); toast.success('Order created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/sales/orders/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); toast.success('Orders cancelled'); }, onError: (e: Error) => toast.error(e.message) });
+  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/sales/orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); toast.success('Order updated'); }, onError: (e: Error) => toast.error(e.message) });
   const contextMenuItems = useMemo(() => [
     { label: 'View', icon: <Eye size={14} />, action: 'view' },
     { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
     { label: 'Cancel', icon: <XCircle size={14} />, action: 'cancel', disabled: (r: any) => r.status === 'CANCELLED' || r.status === 'DELIVERED' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
-      case 'view': toast.info(`View $orders: ${row.name || row.id}`); break;
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'cancel': toast.info(`Cancel: ${row.name || row.id}`); break;
+      case 'view': toast.info(`View order: ${row.orderNumber || row.id}`); break;
+      case 'edit': setEditItem(row); setDialogOpen(true); break;
+      case 'cancel': if (confirm(`Cancel order ${row.orderNumber || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
     }
-  }, [bulkDeleteMutation]);
+  }, [bulkDeleteMutation, toast, setEditItem, setDialogOpen]);
 
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
@@ -99,8 +101,9 @@ export function OrdersPage() {
         { label: 'Cancel', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Cancel ${ids.length} orders?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Order" fields={formFields} initialValues={{}}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+        <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Order" : "Order"} fields={formFields}
+      initialValues={editItem || {}}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
   </div>);
 }

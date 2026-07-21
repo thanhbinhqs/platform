@@ -32,11 +32,11 @@ export function AuditLogsPage() {
     { label: 'View Details', icon: <Eye size={14} />, action: 'view' },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
+      const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
       case 'view': toast.info(`View details: ${row.name || row.id}`); break;
     }
-  }, []);
+  }, [toast]);
 
   const columns = useMemo<DataGridColumn<Item>[]>(() => [
     { accessorKey: 'user', header: 'User', cell: ({ getValue }) => (getValue() as any)?.username || '—' },
