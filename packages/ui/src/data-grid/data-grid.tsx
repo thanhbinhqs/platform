@@ -446,7 +446,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
   total: extTotal,
   onPageChange: extOnPageChange, onPageSizeChange: extOnPageSizeChange,
   enableSelection, enableRowNumber, enableSorting = true, enableColumnVisibility = true,
-  enableColumnResize, enableExport = true, enableDensity = true, enableSearch = false, enableColumnFilter = false, showFooter = false,
+  enableColumnResize = true, enableExport = true, enableDensity = true, enableSearch = false, enableColumnFilter = false, showFooter = false,
   searchPlaceholder,
   density: extDenKey, onDensityChange: extOnDenChange,
   columnVisibility: extColVis, onColumnVisibilityChange: extOnColVisChange,
@@ -688,10 +688,10 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     ${h.column.getIsResizing() ? 'bg-primary/5' : 'group-hover:bg-accent/30'}`}
                   style={{ transform: 'none' }}
                 >
-                  <div className={`h-full w-[3px] rounded-full transition-all duration-150
+                  <div className={`h-[60%] w-[3px] rounded-full transition-all duration-150
                     ${h.column.getIsResizing()
                       ? 'w-[5px] bg-primary shadow-[0_0_5px_var(--color-primary)]'
-                      : 'bg-border group-hover:w-[4px] group-hover:bg-primary/60'
+                      : 'bg-border/60 group-hover:w-[5px] group-hover:bg-primary/70'
                     }`}
                   />
                 </div>
