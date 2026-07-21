@@ -685,9 +685,37 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     tableEl.querySelectorAll('thead tr, tbody tr').forEach(row => {
                       const cell = row.children[domColIdx] as HTMLElement | undefined;
                       if (!cell) return;
-                      maxWidth = Math.max(maxWidth, cell.scrollWidth);
+                      // Get the inner content element that holds the actual rendered value
+                      // (avoid cloning the full cell which is constrained by table-layout:fixed)
+                      const contentEl = cell.tagName === 'TH'
+                        ? cell.querySelector('div.flex') as HTMLElement | null
+                        : cell.querySelector('span.truncate') as HTMLElement | null;
+                      const el = contentEl || cell;
+                      // Clone just the content element, measure offscreen without constraints
+                      const clone = el.cloneNode(true) as HTMLElement;
+                      clone.style.position = 'fixed';
+                      clone.style.left = '-9999px';
+                      clone.style.visibility = 'hidden';
+                      clone.style.width = 'auto';
+                      clone.style.minWidth = 'auto';
+                      clone.style.maxWidth = 'none';
+                      clone.style.overflow = 'visible';
+                      clone.style.whiteSpace = 'nowrap';
+                      // Unconstrain children that might clip
+                      clone.querySelectorAll('*').forEach((child: Element) => {
+                        if (child instanceof HTMLElement) {
+                          child.style.overflow = 'visible';
+                          child.style.whiteSpace = 'nowrap';
+                          child.style.width = 'auto';
+                          child.style.maxWidth = 'none';
+                        }
+                      });
+                      document.body.appendChild(clone);
+                      maxWidth = Math.max(maxWidth, clone.scrollWidth);
+                      document.body.removeChild(clone);
                     });
-                    const padding = 24;
+                    const cellPadding = denKey === 'compact' ? 12 : denKey === 'comfortable' ? 24 : 16;
+                    const padding = cellPadding + 8;
                     const minSize = h.column.columnDef.minSize ?? 80;
                     const newWidth = Math.max(Math.ceil(maxWidth + padding), minSize);
                     table.setColumnSizing(old => ({ ...old, [h.column.id]: newWidth }));
