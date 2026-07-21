@@ -670,10 +670,19 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
               {enableColumnResize && h.column.getCanResize() && (
                 <div
                   onMouseDown={(e) => {
+                    const bar = e.currentTarget.firstChild as HTMLElement;
+                    bar.classList.add('resizing');
+                    bar.style.setProperty('--bar-w', '5px');
+                    bar.style.setProperty('--bar-bg', 'var(--color-primary)');
+                    bar.style.setProperty('--bar-shadow', '0 0 5px var(--color-primary)');
                     document.documentElement.classList.add('data-grid-resizing');
                     h.getResizeHandler()(e);
                     const cleanup = () => {
                       document.documentElement.classList.remove('data-grid-resizing');
+                      bar.classList.remove('resizing');
+                      bar.style.setProperty('--bar-w', '3px');
+                      bar.style.setProperty('--bar-bg', 'color-mix(in srgb, var(--color-border) 40%, transparent)');
+                      bar.style.setProperty('--bar-shadow', 'none');
                       document.removeEventListener('mouseup', cleanup);
                       document.removeEventListener('touchend', cleanup);
                     };
@@ -681,19 +690,53 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
                     document.addEventListener('touchend', cleanup);
                   }}
                   onTouchStart={(e) => {
+                    const bar = e.currentTarget.firstChild as HTMLElement;
+                    bar.classList.add('resizing');
+                    bar.style.setProperty('--bar-w', '5px');
+                    bar.style.setProperty('--bar-bg', 'var(--color-primary)');
+                    bar.style.setProperty('--bar-shadow', '0 0 5px var(--color-primary)');
                     document.documentElement.classList.add('data-grid-resizing');
                     h.getResizeHandler()(e);
                   }}
-                  className={`absolute right-0 top-0 h-full w-2.5 cursor-col-resize select-none touch-none z-30 flex items-center justify-center transition-colors
-                    ${h.column.getIsResizing() ? 'bg-primary/5' : 'group-hover:bg-accent/30'}`}
-                  style={{ transform: 'none' }}
+                  onMouseEnter={(e) => {
+                    const bar = e.currentTarget.firstChild as HTMLElement;
+                    if (!bar.classList.contains('resizing')) {
+                      bar.style.setProperty('--bar-w', '5px');
+                      bar.style.setProperty('--bar-bg', 'color-mix(in srgb, var(--color-primary) 70%, transparent)');
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    const bar = e.currentTarget.firstChild as HTMLElement;
+                    if (!bar.classList.contains('resizing')) {
+                      bar.style.setProperty('--bar-w', '3px');
+                      bar.style.setProperty('--bar-bg', 'color-mix(in srgb, var(--color-border) 40%, transparent)');
+                      bar.style.setProperty('--bar-shadow', 'none');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    height: '100%',
+                    width: '10px',
+                    cursor: 'col-resize',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    touchAction: 'none',
+                    zIndex: 30,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
-                  <div className={`h-[60%] w-[3px] rounded-full transition-all duration-150
-                    ${h.column.getIsResizing()
-                      ? 'w-[5px] bg-primary shadow-[0_0_5px_var(--color-primary)]'
-                      : 'bg-border/60 group-hover:w-[5px] group-hover:bg-primary/70'
-                    }`}
-                  />
+                  <div style={{
+                    height: '60%',
+                    borderRadius: '9999px',
+                    transition: 'all 0.15s ease',
+                    width: 'var(--bar-w, 3px)',
+                    backgroundColor: 'var(--bar-bg, color-mix(in srgb, var(--color-border) 40%, transparent))',
+                    boxShadow: 'var(--bar-shadow, none)',
+                  }} />
                 </div>
               )}
             </th>
