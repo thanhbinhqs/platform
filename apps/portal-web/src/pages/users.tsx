@@ -97,8 +97,6 @@ export function UsersPage() {
     { name: 'isActive', label: 'Active', type: 'boolean' },
   ], [editItem, roleOptions]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
-
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -121,6 +119,8 @@ export function UsersPage() {
     onGlobalFilterChange: handleGlobalFilterChange,
     globalFilter: search,
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
+
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
 
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
