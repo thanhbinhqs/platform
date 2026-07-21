@@ -898,7 +898,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
           </div>
         )}
         {!isLoading && !error && data.length > 0 && (
-          <table className="w-full border border-border border-collapse" style={{ minWidth: Math.max(600, table.getTotalSize()), tableLayout: 'fixed' }}>
+          <table className="border border-border border-collapse" style={{ width: table.getTotalSize() + 'px', tableLayout: 'fixed' }}>
             <colgroup>
               {enableRowNumber && <col style={{ width: 48 }} />}
               {enableSelection && <col style={{ width: 40 }} />}
