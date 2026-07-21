@@ -2,10 +2,12 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
+import { Filter } from 'lucide-react';
 import { Trash, Pencil, Workflow } from 'lucide-react';
 import { Archive, Play } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; type: string; status: string; trigger?: string; createdAt: string; [key: string]: unknown; }
 
@@ -19,6 +21,8 @@ export function WorkflowsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
   const [editItem, setEditItem] = useState<Item | null>(null);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -66,6 +70,14 @@ export function WorkflowsPage() {
     { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' }] },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
+    { id: 'type', label: 'Type', type: 'select', options: [{ label: 'All Types', value: '' }, { label: 'Manual', value: 'MANUAL' }, { label: 'Automated', value: 'AUTOMATED' }, { label: 'Triggered', value: 'TRIGGERED' }] },
+    { id: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' }, { label: 'Archived', value: 'ARCHIVED' }] },
+    { id: 'trigger', label: 'Trigger', type: 'text', placeholder: 'Filter by trigger...' },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -93,16 +105,29 @@ export function WorkflowsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Workflows</h1>
       <Button onClick={() => { setDialogOpen(true); }}><Workflow size={16} className="mr-1" /> Add Workflow</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Workflows" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No workflows found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-        { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} workflows?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />}
-        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
-      title={editItem ? "Edit Workflow" : "Create Workflow"} fields={formFields}
-      initialValues={editItem || { status: 'DRAFT' }}
-      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Workflows" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No workflows found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+            { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} workflows?`)) bulkDeleteMutation.mutate(ids); } },
+          ]} />}
+            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+        <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+          title={editItem ? "Edit Workflow" : "Create Workflow"} fields={formFields}
+          initialValues={editItem || { status: 'DRAFT' }}
+          onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+      </div>
+    </div>
   </div>);
 }

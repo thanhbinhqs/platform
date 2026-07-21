@@ -2,9 +2,10 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Clock, Pencil, Play, Trash, Trash2 } from 'lucide-react';
+import { Clock, Filter, Pencil, Play, Trash, Trash2 } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; type: string; cronExpression: string; isActive: boolean; config?: any; createdAt: string; [key: string]: unknown; }
 
@@ -19,6 +20,8 @@ export function ScheduledJobsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -74,6 +77,14 @@ export function ScheduledJobsPage() {
     { name: 'isActive', label: 'Active', type: 'boolean' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
+    { id: 'type', label: 'Type', type: 'select', options: [{ label: 'All Types', value: '' }, { label: 'Script', value: 'SCRIPT' }, { label: 'Webhook', value: 'WEBHOOK' }, { label: 'Task', value: 'TASK' }] },
+    { id: 'cronExpression', label: 'Cron Expression', type: 'text', placeholder: 'e.g. 0 0 * * *' },
+    { id: 'isActive', label: 'Active', type: 'select', options: [{ label: 'All', value: '' }, { label: 'Active', value: 'true' }, { label: 'Inactive', value: 'false' }] },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -101,20 +112,33 @@ export function ScheduledJobsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Scheduled Jobs</h1>
       <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><Clock size={16} className="mr-1" /> Add Job</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Scheduled Jobs" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No scheduled jobs found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-        { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} jobs?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />}
-        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
-      title={editItem ? "Edit Scheduled Job" : "Create Scheduled Job"} fields={formFields}
-      initialValues={editItem || { isActive: true, type: 'SCRIPT' }}
-      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
-    <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
-      title="Delete Scheduled Job" message={`Are you sure you want to delete ${deleteItem?.name}?`}
-      onConfirm={async () => { await bulkDeleteMutation.mutateAsync([deleteItem!.id]); setDeleteItem(null); }}
-      isPending={bulkDeleteMutation.isPending} />
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Scheduled Jobs" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No scheduled jobs found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+            { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} jobs?`)) bulkDeleteMutation.mutate(ids); } },
+          ]} />}
+            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+        <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+          title={editItem ? "Edit Scheduled Job" : "Create Scheduled Job"} fields={formFields}
+          initialValues={editItem || { isActive: true, type: 'SCRIPT' }}
+          onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
+        <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+          title="Delete Scheduled Job" message={`Are you sure you want to delete ${deleteItem?.name}?`}
+          onConfirm={async () => { await bulkDeleteMutation.mutateAsync([deleteItem!.id]); setDeleteItem(null); }}
+          isPending={bulkDeleteMutation.isPending} />
+      </div>
+    </div>
   </div>);
 }

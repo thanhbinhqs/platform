@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { toast } from '@platform/hooks';
-import { Eye } from 'lucide-react';
+import { Eye, Filter } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton } from '@platform/ui';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 interface Item { id: string; user: any; action: string; entity: string; entityId: string; createdAt: string; [key: string]: unknown; }
 export function AuditLogsPage() {
   const [selection, setSelection] = useState<Item[]>([]);
@@ -11,6 +12,8 @@ export function AuditLogsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
@@ -45,6 +48,15 @@ export function AuditLogsPage() {
     { accessorKey: 'entityId', header: 'Entity ID' },
     { accessorKey: 'createdAt', header: 'Date', cell: ({ getValue }) => new Date(getValue() as string).toLocaleString() },
   ], []);
+
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'user', label: 'User', type: 'text', placeholder: 'Search by username...' },
+    { id: 'action', label: 'Action', type: 'select', options: [{ label: 'All Actions', value: '' }, { label: 'Create', value: 'CREATE' }, { label: 'Update', value: 'UPDATE' }, { label: 'Delete', value: 'DELETE' }, { label: 'Read', value: 'READ' }] },
+    { id: 'entity', label: 'Entity', type: 'text', placeholder: 'Filter by entity...' },
+    { id: 'entityId', label: 'Entity ID', type: 'text', placeholder: 'Filter by entity ID...' },
+    { id: 'createdAt', label: 'Date Range', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -69,11 +81,25 @@ export function AuditLogsPage() {
   }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
 
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
-  return (<div className="h-full flex flex-col space-y-4 overflow-hidden"><h1 className="text-2xl font-bold">Audit Logs</h1>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Audit Logs" enableSorting enableColumnVisibility enableExport enableDensity pageSize={pageSize} pageSizeOptions={[10, 20, 50, 100]} emptyMessage="No audit logs found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      contextMenuItems={contextMenuItems}
-      onContextMenuAction={handleContextMenuAction} />
+  return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
+    <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Audit Logs</h1></div>
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Audit Logs" enableSorting enableColumnVisibility enableExport enableDensity pageSize={pageSize} pageSizeOptions={[10, 20, 50, 100]} emptyMessage="No audit logs found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          contextMenuItems={contextMenuItems}
+          onContextMenuAction={handleContextMenuAction} />
+      </div>
+    </div>
   </div>);
 }

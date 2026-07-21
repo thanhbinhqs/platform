@@ -2,9 +2,10 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Trash, Trash2, Pencil, ToggleLeft, Webhook } from 'lucide-react';
+import { Filter, Trash, Trash2, Pencil, ToggleLeft, Webhook } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; url: string; isActive: boolean; events?: string[]; secret?: string; createdAt: string; [key: string]: unknown; }
 
@@ -19,6 +20,8 @@ export function WebhooksPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -79,6 +82,14 @@ export function WebhooksPage() {
     { name: 'secret', label: 'Secret (optional)', type: 'password' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
+    { id: 'url', label: 'URL', type: 'text', placeholder: 'Filter by URL...' },
+    { id: 'isActive', label: 'Active', type: 'select', options: [{ label: 'All', value: '' }, { label: 'Active', value: 'true' }, { label: 'Inactive', value: 'false' }] },
+    { id: 'events', label: 'Events', type: 'text', placeholder: 'Filter by event...' },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -106,19 +117,32 @@ export function WebhooksPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Webhooks</h1>
       <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><Webhook size={16} className="mr-1" /> Add Webhook</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Webhooks" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No webhooks found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-        { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} webhooks?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />}
-        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
-      title={editItem ? `Edit Webhook: ${editItem.name}` : 'Create Webhook'}
-      fields={formFields} initialValues={editItem || { isActive: true }}
-      onSubmit={async (v) => { if (editItem) { /* no PUT endpoint - invalidate to refetch */ } else { await createMutation.mutateAsync(v); } setDialogOpen(false); setEditItem(null); }} isPending={createMutation.isPending} />
-    <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
-      title="Delete Webhook" message={`Delete "${deleteItem?.name}"?`}
-      onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }} isPending={deleteMutation.isPending} />
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Webhooks" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No webhooks found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+            { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} webhooks?`)) bulkDeleteMutation.mutate(ids); } },
+          ]} />}
+            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+        <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+          title={editItem ? `Edit Webhook: ${editItem.name}` : 'Create Webhook'}
+          fields={formFields} initialValues={editItem || { isActive: true }}
+          onSubmit={async (v) => { if (editItem) { /* no PUT endpoint - invalidate to refetch */ } else { await createMutation.mutateAsync(v); } setDialogOpen(false); setEditItem(null); }} isPending={createMutation.isPending} />
+        <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+          title="Delete Webhook" message={`Delete "${deleteItem?.name}"?`}
+          onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }} isPending={deleteMutation.isPending} />
+      </div>
+    </div>
   </div>);
 }

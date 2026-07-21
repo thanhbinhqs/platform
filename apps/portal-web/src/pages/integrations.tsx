@@ -2,9 +2,10 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Trash, Puzzle, ToggleLeft, Pencil } from 'lucide-react';
+import { Filter, Trash, Puzzle, ToggleLeft, Pencil } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; type: string; provider: string; status: string; config?: any; createdAt: string; [key: string]: unknown; }
 
@@ -17,6 +18,8 @@ export function IntegrationsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
 
@@ -26,11 +29,14 @@ export function IntegrationsPage() {
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['integrations', page, pageSize, debouncedSearch, sorting],
+    queryKey: ['integrations', page, pageSize, debouncedSearch, sorting, activeFilters],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
+      activeFilters.filter(f => f.value !== '' && f.value !== undefined && f.value !== null).forEach(f => {
+        params.set(`filter[${f.field}]`, String(f.value));
+      });
       const r = await fetch(`/api/v1/integrations?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
       const d = j?.data || j;
@@ -69,6 +75,14 @@ export function IntegrationsPage() {
     { name: 'provider', label: 'Provider' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search name...' },
+    { id: 'type', label: 'Type', type: 'text', placeholder: 'Search type...' },
+    { id: 'provider', label: 'Provider', type: 'text', placeholder: 'Search provider...' },
+    { id: 'status', label: 'Status', type: 'text', placeholder: 'Search status...' },
+    { id: 'createdAt', label: 'Created At', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -95,14 +109,27 @@ export function IntegrationsPage() {
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Integrations</h1>
-      <Button onClick={() => { setDialogOpen(true); }}><Puzzle size={16} className="mr-1" /> Add Integration</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Integrations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No integrations found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-        { label: 'Disconnect', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Disconnect ${ids.length} integrations?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)}><Filter size={16} /></Button>
+        <Button onClick={() => { setDialogOpen(true); }}><Puzzle size={16} className="mr-1" /> Add Integration</Button></div></div>
+    <div className="flex flex-1 gap-4 overflow-hidden">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilters}
+        onToggle={setShowFilters}
+      />
+      <DataGrid enableSearch columns={columns} data={data?.items || []} title="Integrations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No integrations found."
+        total={data?.total || 0}
+        serverSide={serverSide}
+        bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+          { label: 'Disconnect', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Disconnect ${ids.length} integrations?`)) bulkDeleteMutation.mutate(ids); } },
+        ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+    </div>
         <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
       title={editItem ? "Edit Integration" : "Integration"} fields={formFields}
       initialValues={editItem || {}}

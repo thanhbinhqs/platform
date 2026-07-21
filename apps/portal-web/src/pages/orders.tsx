@@ -2,10 +2,11 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Trash, FileText } from 'lucide-react';
+import { Trash, FileText, Filter, X } from 'lucide-react';
 import { Eye, Pencil, XCircle } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; orderNumber: string; customerName: string; items: any[]; total: number; status: string; createdAt: string; [key: string]: unknown; }
 
@@ -19,6 +20,8 @@ export function OrdersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
   const [editItem, setEditItem] = useState<Item | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -26,11 +29,14 @@ export function OrdersPage() {
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, pageSize, debouncedSearch, sorting],
+    queryKey: ['orders', page, pageSize, debouncedSearch, sorting, activeFilters],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
+      activeFilters.filter(f => f.value !== '' && f.value !== undefined && f.value !== null).forEach(f => {
+        params.set(`filter[${f.field}]`, String(f.value));
+      });
       const r = await fetch(`/api/v1/sales/orders?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
       const d = j?.data || j;
@@ -67,6 +73,13 @@ export function OrdersPage() {
     { name: 'items', label: 'Items (JSON)', type: 'textarea' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'orderNumber', label: 'Order #', type: 'text' },
+    { id: 'customerName', label: 'Customer', type: 'text' },
+    { id: 'total', label: 'Total', type: 'number-range' },
+    { id: 'status', label: 'Status', type: 'select', options: [{ label: 'Pending', value: 'PENDING' }, { label: 'Confirmed', value: 'CONFIRMED' }, { label: 'Shipped', value: 'SHIPPED' }, { label: 'Delivered', value: 'DELIVERED' }, { label: 'Cancelled', value: 'CANCELLED' }] },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -93,7 +106,13 @@ export function OrdersPage() {
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Orders</h1>
-      <Button onClick={() => { setDialogOpen(true); }}><FileText size={16} className="mr-1" /> Add Order</Button></div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setShowFilters(s => !s)}><Filter size={16} /> {showFilters ? 'Hide Filters' : 'Filters'}</Button>
+        <Button onClick={() => { setDialogOpen(true); }}><FileText size={16} className="mr-1" /> Add Order</Button>
+      </div></div>
+    <div className="flex flex-1 gap-4 overflow-hidden">
+      <FilterSidebar filterFields={filterFields} activeFilters={activeFilters} onActiveFiltersChange={(f) => { setActiveFilters(f); setPage(0); }} searchQuery={search} onSearchChange={handleGlobalFilterChange} show={showFilters} onToggle={setShowFilters} />
+      <div className="flex-1 overflow-auto">
     <DataGrid enableSearch columns={columns} data={data?.items || []} title="Orders" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No orders found."
       total={data?.total || 0}
       serverSide={serverSide}
@@ -101,6 +120,8 @@ export function OrdersPage() {
         { label: 'Cancel', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Cancel ${ids.length} orders?`)) bulkDeleteMutation.mutate(ids); } },
       ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+      </div>
+    </div>
         <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
       title={editItem ? "Edit Order" : "Order"} fields={formFields}
       initialValues={editItem || {}}

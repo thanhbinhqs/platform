@@ -47,13 +47,25 @@ export function RulesPage() {
   ], []);
 
   const filterFields = useMemo(() => [
+    { id: 'id', label: 'ID', type: 'text' as const, placeholder: 'Search by ID...' },
     { id: 'name', label: 'Name', type: 'text' as const, placeholder: 'Search by name...' },
-    { id: 'event', label: 'Event', type: 'text' as const },
+    { id: 'event', label: 'Event', type: 'select' as const, options: [
+      { label: 'All Events', value: '' },
+      { label: 'User Created', value: 'user.created' },
+      { label: 'User Updated', value: 'user.updated' },
+      { label: 'User Deleted', value: 'user.deleted' },
+      { label: 'Permission Granted', value: 'permission.granted' },
+      { label: 'Permission Revoked', value: 'permission.revoked' },
+      { label: 'Resource Created', value: 'resource.created' },
+      { label: 'Resource Updated', value: 'resource.updated' },
+      { label: 'Resource Deleted', value: 'resource.deleted' },
+    ]},
     { id: 'status', label: 'Status', type: 'select' as const, options: [
-      { label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Draft', value: 'draft' },
+      { label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Draft', value: 'draft' },
     ]},
     { id: 'priority', label: 'Priority', type: 'number-range' as const },
     { id: 'createdAt', label: 'Created Date', type: 'date-range' as const },
+    { id: 'updatedAt', label: 'Updated Date', type: 'date-range' as const },
   ], []);
 
   const bulkActions = useMemo(() => [

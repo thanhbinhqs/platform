@@ -2,8 +2,9 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Download, Eye, HardDrive, Trash2 } from 'lucide-react';
+import { Download, Eye, Filter, HardDrive, Trash2 } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; provider: string; isPublic: boolean; createdAt: string; [key: string]: unknown; }
 
@@ -17,6 +18,8 @@ export function StoragePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -64,6 +67,13 @@ export function StoragePage() {
     { name: 'isPublic', label: 'Public Access', type: 'boolean' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
+    { id: 'provider', label: 'Provider', type: 'select', options: [{ label: 'All Providers', value: '' }, { label: 'Local', value: 'LOCAL' }, { label: 'S3', value: 'S3' }, { label: 'GCS', value: 'GCS' }] },
+    { id: 'isPublic', label: 'Public Access', type: 'select', options: [{ label: 'All', value: '' }, { label: 'Public', value: 'true' }, { label: 'Private', value: 'false' }] },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -91,13 +101,26 @@ export function StoragePage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Storage</h1>
       <Button onClick={() => setDialogOpen(true)}><HardDrive size={16} className="mr-1" /> Create Bucket</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Storage" enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No storage found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      contextMenuItems={contextMenuItems}
-      onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Storage Bucket" fields={formFields} initialValues={{ provider: 'LOCAL', isPublic: false }}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Storage" enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No storage found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          contextMenuItems={contextMenuItems}
+          onContextMenuAction={handleContextMenuAction} />
+        <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
+          title="Create Storage Bucket" fields={formFields} initialValues={{ provider: 'LOCAL', isPublic: false }}
+          onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+      </div>
+    </div>
   </div>);
 }

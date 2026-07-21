@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
 import { Trash, UserCheck } from 'lucide-react';
-import { Eye, RefreshCw, XCircle } from 'lucide-react';
+import { Eye, Filter, RefreshCw, XCircle } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; delegationRuleId?: string; type: string; status: string; createdAt: string; [key: string]: unknown; }
 
@@ -18,6 +19,8 @@ export function DelegationsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilter, setShowFilter] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -62,6 +65,14 @@ export function DelegationsPage() {
     { name: 'name', label: 'Name', required: true }, { name: 'type', label: 'Type' },
   ], []);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
+    { id: 'type', label: 'Type', type: 'text', placeholder: 'Filter by type...' },
+    { id: 'status', label: 'Status', type: 'select', options: [{ label: 'All Statuses', value: '' }, { label: 'Active', value: 'ACTIVE' }, { label: 'Pending', value: 'PENDING' }, { label: 'Failed', value: 'FAILED' }, { label: 'Revoked', value: 'REVOKED' }] },
+    { id: 'delegationRuleId', label: 'Rule ID', type: 'text', placeholder: 'Filter by rule ID...' },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  ], []);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -89,15 +100,28 @@ export function DelegationsPage() {
   return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
     <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Delegations</h1>
       <Button onClick={() => { setDialogOpen(true); }}><UserCheck size={16} className="mr-1" /> Add Delegation</Button></div>
-    <DataGrid enableSearch columns={columns} data={data?.items || []} title="Delegations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No delegations found."
-      total={data?.total || 0}
-      serverSide={serverSide}
-      bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-        { label: 'Revoke', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Revoke ${ids.length} delegations?`)) bulkDeleteMutation.mutate(ids); } },
-      ]} />}
-        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-    <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-      title="Create Delegation" fields={formFields} initialValues={{}}
-      onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+    <div className="flex flex-1 min-h-0">
+      <FilterSidebar
+        filterFields={filterFields}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
+        searchQuery={search}
+        onSearchChange={handleGlobalFilterChange}
+        show={showFilter}
+        onToggle={setShowFilter}
+      />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+        <DataGrid columns={columns} data={data?.items || []} title="Delegations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No delegations found."
+          total={data?.total || 0}
+          serverSide={serverSide}
+          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
+            { label: 'Revoke', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Revoke ${ids.length} delegations?`)) bulkDeleteMutation.mutate(ids); } },
+          ]} />}
+            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+        <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
+          title="Create Delegation" fields={formFields} initialValues={{}}
+          onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
+      </div>
+    </div>
   </div>);
 }

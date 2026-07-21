@@ -2,9 +2,10 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Trash, Trash2, Key, Pencil, ToggleLeft, UserPlus } from 'lucide-react';
+import { Filter, Trash, Trash2, Key, Pencil, ToggleLeft, UserPlus } from 'lucide-react';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
 import { BulkActions, type BulkAction } from '../components/bulk-actions';
+import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface User { id: string; username: string; email: string; displayName?: string; status?: string; isActive?: boolean; role?: { id: string; name: string } | string; roleId?: string; createdAt: string; [key: string]: unknown; }
 
@@ -20,6 +21,8 @@ export function UsersPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -27,11 +30,14 @@ export function UsersPage() {
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users', page, pageSize, debouncedSearch, sorting],
+    queryKey: ['users', page, pageSize, debouncedSearch, sorting, activeFilters],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
+      activeFilters.filter(f => f.value !== '' && f.value !== undefined && f.value !== null).forEach(f => {
+        params.set(`filter[${f.field}]`, String(f.value));
+      });
       const r = await fetch(`/api/v1/users?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
       const d = j?.data || j;
@@ -97,6 +103,15 @@ export function UsersPage() {
     { name: 'isActive', label: 'Active', type: 'boolean' },
   ], [editItem, roleOptions]);
 
+  const filterFields: FilterField[] = useMemo(() => [
+    { id: 'username', label: 'Username', type: 'text', placeholder: 'Search username...' },
+    { id: 'email', label: 'Email', type: 'text', placeholder: 'Search email...' },
+    { id: 'displayName', label: 'Display Name', type: 'text', placeholder: 'Search display name...' },
+    { id: 'isActive', label: 'Active', type: 'checkbox' },
+    { id: 'roleId', label: 'Role', type: 'select', options: roleOptions, placeholder: 'Select role...' },
+    { id: 'createdAt', label: 'Created At', type: 'date-range' },
+  ], [roleOptions]);
+
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
@@ -125,7 +140,19 @@ export function UsersPage() {
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
       <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Users</h1>
-        <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)}><Filter size={16} /></Button>
+          <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div></div>
+      <div className="flex flex-1 gap-4 overflow-hidden">
+        <FilterSidebar
+          filterFields={filterFields}
+          activeFilters={activeFilters}
+          onActiveFiltersChange={setActiveFilters}
+          searchQuery={search}
+          onSearchChange={handleGlobalFilterChange}
+          show={showFilters}
+          onToggle={setShowFilters}
+        />
       <DataGrid enableSearch columns={columns} data={data?.items || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
         onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
         total={data?.total || 0}
@@ -136,6 +163,7 @@ export function UsersPage() {
           { label: 'Deactivate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDeactivateMutation.mutate(ids) },
         ]} />}
         contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
+      </div>
 
       {/* Create/Edit Dialog */}
       <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
