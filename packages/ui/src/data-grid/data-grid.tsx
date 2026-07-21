@@ -669,6 +669,7 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
               )}
               {enableColumnResize && h.column.getCanResize() && (
                 <div
+                  onClick={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     const tableEl = tableContainerRef.current?.querySelector('table');
