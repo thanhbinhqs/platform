@@ -669,6 +669,38 @@ export function DataGrid<TData extends { [key: string]: any } = Record<string, u
               )}
               {enableColumnResize && h.column.getCanResize() && (
                 <div
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    const tableEl = tableContainerRef.current?.querySelector('table');
+                    if (!tableEl) return;
+                    let domColIdx = 0;
+                    if (enableRowNumber) domColIdx++;
+                    if (enableSelection) domColIdx++;
+                    if (enableRowExpansion) domColIdx++;
+                    if (enableRowDrag) domColIdx++;
+                    const colIdxInHeaders = hg.headers.indexOf(h);
+                    if (colIdxInHeaders < 0) return;
+                    domColIdx += colIdxInHeaders;
+                    let maxWidth = 0;
+                    tableEl.querySelectorAll('thead tr, tbody tr').forEach(row => {
+                      const cell = row.children[domColIdx] as HTMLElement | undefined;
+                      if (!cell) return;
+                      maxWidth = Math.max(maxWidth, cell.scrollWidth);
+                    });
+                    const padding = 24;
+                    const minSize = h.column.columnDef.minSize ?? 80;
+                    const newWidth = Math.max(Math.ceil(maxWidth + padding), minSize);
+                    table.setColumnSizing(old => ({ ...old, [h.column.id]: newWidth }));
+                    const bar = e.currentTarget.firstChild as HTMLElement;
+                    bar.style.setProperty('--bar-w', '6px');
+                    bar.style.setProperty('--bar-bg', 'var(--color-primary)');
+                    bar.style.setProperty('--bar-shadow', '0 0 8px var(--color-primary)');
+                    setTimeout(() => {
+                      bar.style.setProperty('--bar-w', '3px');
+                      bar.style.setProperty('--bar-bg', 'color-mix(in srgb, var(--color-border) 40%, transparent)');
+                      bar.style.setProperty('--bar-shadow', 'none');
+                    }, 300);
+                  }}
                   onMouseDown={(e) => {
                     const bar = e.currentTarget.firstChild as HTMLElement;
                     bar.classList.add('resizing');
