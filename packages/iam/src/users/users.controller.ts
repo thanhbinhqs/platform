@@ -32,9 +32,32 @@ export class UsersController {
 
   @Get()
   @Permissions('read:users', 'manage:users')
-  @ApiOperation({ summary: 'List all users' })
-  async findAll(@Query('page') page?: number, @Query('limit') limit?: number, @Query('search') search?: string, @Query('sortField') sortField?: string, @Query('sortDir') sortDir?: string) {
-    return this.usersService.findAll({ page: page ? Number(page) : undefined, limit: limit ? Number(limit) : undefined, search, sortField, sortDir });
+  @ApiOperation({ summary: 'List all users with server-side filter/sort/pagination' })
+  async findAll(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query() query?: Record<string, any>,
+  ) {
+    const filters: Record<string, string> = {};
+    if (query) {
+      for (const key of Object.keys(query)) {
+        const match = key.match(/^filter\[(.+)\]$/);
+        if (match && match[1]) {
+          filters[match[1]] = String(query[key]);
+        }
+      }
+    }
+    return this.usersService.findAll({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      search,
+      sortField,
+      sortDir,
+      filters,
+    });
   }
 
   @Get(':id')

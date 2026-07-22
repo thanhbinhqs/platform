@@ -65,7 +65,7 @@ export class UsersService {
     return this.formatUser(user);
   }
 
-  async findAll(params?: { page?: number; limit?: number; search?: string; sortField?: string; sortDir?: string }) {
+  async findAll(params?: { page?: number; limit?: number; search?: string; sortField?: string; sortDir?: string; filters?: Record<string, string> }) {
     const page = Math.max(1, params?.page || 1);
     const pageSize = Math.min(100, Math.max(1, params?.limit || 20));
     const skip = (page - 1) * pageSize;
@@ -76,7 +76,28 @@ export class UsersService {
         { username: { contains: params.search, mode: 'insensitive' } },
         { email: { contains: params.search, mode: 'insensitive' } },
         { displayName: { contains: params.search, mode: 'insensitive' } },
+        { phone: { contains: params.search, mode: 'insensitive' } },
       ];
+    }
+    // Process individual field filters (filter[field]=value)
+    if (params?.filters) {
+      for (const [field, value] of Object.entries(params.filters)) {
+        if (!value || value === '') continue;
+        if (field === 'username' || field === 'email' || field === 'displayName' || field === 'phone') {
+          where[field] = { contains: value, mode: 'insensitive' };
+        } else if (field === 'isActive') {
+          if (value === 'true' || value === 'on') where.status = 'ACTIVE';
+          else if (value === 'false' || value === 'off') where.status = { not: 'ACTIVE' };
+        } else if (field === 'status') {
+          where.status = value;
+        } else if (field === 'roleId') {
+          where.roles = { some: { roleId: value } };
+        } else if (field === 'createdAt') {
+          const parts = value.split(',');
+          if (parts[0]) where.createdAt = { ...where.createdAt, gte: new Date(parts[0]) };
+          if (parts[1]) where.createdAt = { ...where.createdAt, lte: new Date(parts[1] + 'T23:59:59.999Z') };
+        }
+      }
     }
     const [data, total] = await Promise.all([
       this.prisma.client.user.findMany({
