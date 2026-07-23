@@ -55,7 +55,7 @@ export function InstantSearchControl({
           });
           if (!resp.ok) return { id, label: id };
           const json = await resp.json();
-          const item = (json.data || json || [])[0];
+          const item = (json.data?.data || json.data || json || [])[0];
           return { id, label: item?.[displayField] || item?.name || item?.username || id };
         });
         const labels = await Promise.all(promises);
@@ -87,7 +87,8 @@ export function InstantSearchControl({
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      const items: InstantSearchResult[] = (json.data || json || []).map((item: any) => ({
+      const raw = json.data?.data || json.data || json || [];
+      const items: InstantSearchResult[] = (Array.isArray(raw) ? raw : []).map((item: any) => ({
         id: String(item[valueField] || item.id),
         label: item[displayField] || item.name || item.username || item.email || String(item.id),
       }));

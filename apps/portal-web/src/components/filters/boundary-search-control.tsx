@@ -97,7 +97,8 @@ export function BoundarySearchControl({
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      const items: BoundaryItem[] = (json.data || json || []).map((item: any) => ({
+      const raw = json.data?.data || json.data || json || [];
+      const items: BoundaryItem[] = (Array.isArray(raw) ? raw : []).map((item: any) => ({
         id: String(item[valueField] || item.id),
         label: item[displayField] || item.name || item.username || String(item.id),
       }));
