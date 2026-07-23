@@ -222,12 +222,12 @@ export function UsersPage() {
 
   const filterFields = useMemo(() => [
     { id: 'username', label: 'Username', type: 'text' as const, placeholder: 'Search username...' },
-    { id: 'email', label: 'Email', type: 'text' as const, placeholder: 'Search email...' },
+    { id: 'email', label: 'Email', type: 'email' as const, placeholder: 'Search email...' },
     { id: 'displayName', label: 'Display Name', type: 'text' as const, placeholder: 'Search display name...' },
-    { id: 'isActive', label: 'Active', type: 'checkbox' as const },
-    { id: 'roleId', label: 'Role', type: 'select' as const, options: roleOptions, placeholder: 'Select role...' },
+    { id: 'isActive', label: 'Active', type: 'boolean' as const },
+    { id: 'roleId', label: 'Role', type: 'instant-search' as const, endpoint: '/api/v1/roles/search', displayField: 'name', multiple: true, placeholder: 'Search roles...' },
     { id: 'createdAt', label: 'Created At', type: 'date-range' as const },
-  ], [roleOptions]);
+  ], []);
 
   // ── Bulk Actions ──
 

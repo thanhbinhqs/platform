@@ -44,10 +44,10 @@ export function AuditLogsPage() {
 
   const filterFields = useMemo(() => [
     { id: 'user', label: 'User', type: 'text' as const, placeholder: 'Search by username...' },
-    { id: 'action', label: 'Action', type: 'select' as const, options: [{ label: 'All Actions', value: '' }, { label: 'Create', value: 'CREATE' }, { label: 'Update', value: 'UPDATE' }, { label: 'Delete', value: 'DELETE' }, { label: 'Read', value: 'READ' }] },
+    { id: 'action', label: 'Action', type: 'select' as const, multiple: true, options: [{ label: 'Create', value: 'CREATE' }, { label: 'Update', value: 'UPDATE' }, { label: 'Delete', value: 'DELETE' }, { label: 'Read', value: 'READ' }] },
     { id: 'entity', label: 'Entity', type: 'text' as const, placeholder: 'Filter by entity...' },
     { id: 'entityId', label: 'Entity ID', type: 'text' as const, placeholder: 'Filter by entity ID...' },
-    { id: 'createdAt', label: 'Date Range', type: 'date-range' as const },
+    { id: 'createdAt', label: 'Date Range', type: 'boundary-search' as const, inputType: 'date' as const },
   ], []);
 
   const tableActions = useMemo(() => [
