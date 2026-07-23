@@ -1,12 +1,10 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
+import { Skeleton } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Trash, UserCheck } from 'lucide-react';
-import { Eye, Filter, RefreshCw, XCircle } from 'lucide-react';
+import { Trash, UserCheck, Eye, RefreshCw, XCircle, Upload } from 'lucide-react';
+import { AppDataGrid } from '../components/app-data-grid';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
-import { BulkActions } from '../components/bulk-actions';
-import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
 interface Item { id: string; name: string; delegationRuleId?: string; type: string; status: string; createdAt: string; [key: string]: unknown; }
 
@@ -16,22 +14,12 @@ export function DelegationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(15);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
-  const [showFilter, setShowFilter] = useState(true);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(t);
-  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['delegations', page, pageSize, debouncedSearch, sorting],
+    queryKey: ['delegations', page, pageSize, sorting],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
-      if (debouncedSearch) params.set('search', debouncedSearch);
       if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
       const r = await fetch(`/api/v1/delegations?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
@@ -41,6 +29,7 @@ export function DelegationsPage() {
   });
   const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/delegations', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['delegations'] }); toast.success('Delegation created'); }, onError: (e: Error) => toast.error(e.message) });
   const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/delegations/bulk/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['delegations'] }); toast.success('Delegations revoked'); }, onError: (e: Error) => toast.error(e.message) });
+
   const contextMenuItems = useMemo(() => [
     { label: 'View Details', icon: <Eye size={14} />, action: 'view' },
     { label: 'Revoke', icon: <XCircle size={14} />, action: 'revoke', disabled: (r: any) => r.status === 'REVOKED' },
@@ -56,7 +45,7 @@ export function DelegationsPage() {
   }, [bulkDeleteMutation, toast]);
 
 
-  const columns = useMemo<DataGridColumn<Item>[]>(() => [
+  const columns = useMemo<any>(() => [
     { accessorKey: 'name', header: 'Name' }, { accessorKey: 'type', header: 'Type' },
     { accessorKey: 'status', header: 'Status' },
   ], []);
@@ -65,22 +54,27 @@ export function DelegationsPage() {
     { name: 'name', label: 'Name', required: true }, { name: 'type', label: 'Type' },
   ], []);
 
-  const filterFields: FilterField[] = useMemo(() => [
-    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
-    { id: 'type', label: 'Type', type: 'text', placeholder: 'Filter by type...' },
-    { id: 'status', label: 'Status', type: 'select', options: [{ label: 'All Statuses', value: '' }, { label: 'Active', value: 'ACTIVE' }, { label: 'Pending', value: 'PENDING' }, { label: 'Failed', value: 'FAILED' }, { label: 'Revoked', value: 'REVOKED' }] },
-    { id: 'delegationRuleId', label: 'Rule ID', type: 'text', placeholder: 'Filter by rule ID...' },
-    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  const filterFields = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text' as const, placeholder: 'Search by name...' },
+    { id: 'type', label: 'Type', type: 'text' as const, placeholder: 'Filter by type...' },
+    { id: 'status', label: 'Status', type: 'select' as const, options: [{ label: 'All Statuses', value: '' }, { label: 'Active', value: 'ACTIVE' }, { label: 'Pending', value: 'PENDING' }, { label: 'Failed', value: 'FAILED' }, { label: 'Revoked', value: 'REVOKED' }] },
+    { id: 'delegationRuleId', label: 'Rule ID', type: 'text' as const, placeholder: 'Filter by rule ID...' },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' as const },
+  ], []);
+
+  const bulkActions = useMemo(() => [
+    { label: 'Revoke', icon: <Trash size={14} />, onClick: (ids: string[]) => { if (confirm(`Revoke ${ids.length} delegations?`)) bulkDeleteMutation.mutate(ids); } },
+  ], []);
+
+  const tableActions = useMemo(() => [
+    { label: 'Add Delegation', icon: <UserCheck size={14} />, onClick: () => { setDialogOpen(true); }, variant: 'primary' as const },
+    { label: 'Import', icon: <Upload size={14} />, onClick: () => toast.info('Import dialog') },
+    { label: 'Sync', icon: <RefreshCw size={14} />, onClick: () => toast.info('Syncing...') },
   ], []);
 
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
-  }, []);
-
-  const handleGlobalFilterChange = useCallback((value: string) => {
-    setSearch(value);
-    setPage(0);
   }, []);
 
   const serverSide = useMemo(() => ({
@@ -90,38 +84,39 @@ export function DelegationsPage() {
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
     onPaginationChange: handlePaginationChange,
-    sorting,
     onSortingChange: setSorting,
-    onGlobalFilterChange: handleGlobalFilterChange,
-    globalFilter: search,
-  }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
+  }), [page, pageSize, data?.total, handlePaginationChange, sorting]);
 
   if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
-  return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
-    <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Delegations</h1>
-      <Button onClick={() => { setDialogOpen(true); }}><UserCheck size={16} className="mr-1" /> Add Delegation</Button></div>
-    <div className="flex flex-1 min-h-0">
-      <FilterSidebar
+  return (
+    <div className="h-full flex flex-col">
+      <AppDataGrid
+        columns={columns}
+        data={data?.items || []}
+        title="Delegations"
         filterFields={filterFields}
-        activeFilters={activeFilters}
-        onActiveFiltersChange={setActiveFilters}
-        searchQuery={search}
-        onSearchChange={handleGlobalFilterChange}
-        show={showFilter}
-        onToggle={setShowFilter}
+        bulkActions={bulkActions}
+        tableActions={tableActions}
+        enableSelection
+        enableRowNumber
+        enableSorting
+        enableExport
+        enableColumnResize
+        enableColumnVisibility
+        enableDensity
+        pageSize={pageSize}
+        pageSizeOptions={[10, 15, 25, 50, 100]}
+        total={data?.total || 0}
+        onSelectionChange={setSelection}
+        emptyMessage="No delegations found."
+        loading={isLoading}
+        serverSide={serverSide}
+        contextMenuItems={contextMenuItems}
+        onContextMenuAction={handleContextMenuAction}
       />
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
-        <DataGrid columns={columns} data={data?.items || []} title="Delegations" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No delegations found."
-          total={data?.total || 0}
-          serverSide={serverSide}
-          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-            { label: 'Revoke', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Revoke ${ids.length} delegations?`)) bulkDeleteMutation.mutate(ids); } },
-          ]} />}
-            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-        <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
-          title="Create Delegation" fields={formFields} initialValues={{}}
-          onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
-      </div>
+      <CrudDialog open={dialogOpen} onOpenChange={setDialogOpen}
+        title="Create Delegation" fields={formFields} initialValues={{}}
+        onSubmit={async (v) => { await createMutation.mutateAsync(v); setDialogOpen(false); }} isPending={createMutation.isPending} />
     </div>
-  </div>);
+  );
 }

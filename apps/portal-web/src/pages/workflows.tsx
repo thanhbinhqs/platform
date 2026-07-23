@@ -1,13 +1,10 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
+import { Skeleton } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Filter } from 'lucide-react';
-import { Trash, Pencil, Workflow } from 'lucide-react';
-import { Archive, Play } from 'lucide-react';
+import { Workflow, Upload, RefreshCw, Trash2, Pencil, Play, Archive, Trash } from 'lucide-react';
 import { CrudDialog, type CrudField } from '../components/crud-dialog';
-import { BulkActions } from '../components/bulk-actions';
-import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
+import { AppDataGrid } from '../components/app-data-grid';
 
 interface Item { id: string; name: string; type: string; status: string; trigger?: string; createdAt: string; [key: string]: unknown; }
 
@@ -19,10 +16,7 @@ export function WorkflowsPage() {
   const [pageSize, setPageSize] = useState(15);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sorting, setSorting] = useState<any[]>([]);
   const [editItem, setEditItem] = useState<Item | null>(null);
-  const [showFilter, setShowFilter] = useState(true);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -30,11 +24,10 @@ export function WorkflowsPage() {
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['workflows', page, pageSize, debouncedSearch, sorting],
+    queryKey: ['workflows', page, pageSize, debouncedSearch],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
       if (debouncedSearch) params.set('search', debouncedSearch);
-      if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
       const r = await fetch(`/api/v1/workflows?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
       const j = await r.json();
       const d = j?.data || j;
@@ -51,7 +44,7 @@ export function WorkflowsPage() {
     { label: 'Archive', icon: <Archive size={14} />, action: 'archive', disabled: (r: any) => r.status === 'ARCHIVED' },
   ], []);
 
-      const handleContextMenuAction = useCallback((action: string, row: any) => {
+  const handleContextMenuAction = useCallback((action: string, row: any) => {
     switch (action) {
       case 'run': toast.info(`Run workflow: ${row.name}`); break;
       case 'edit': setEditItem(row); setDialogOpen(true); break;
@@ -59,8 +52,7 @@ export function WorkflowsPage() {
     }
   }, [bulkDeleteMutation, toast]);
 
-
-  const columns = useMemo<DataGridColumn<Item>[]>(() => [
+  const columns = useMemo<any>(() => [
     { accessorKey: 'name', header: 'Name' }, { accessorKey: 'type', header: 'Type' },
     { accessorKey: 'status', header: 'Status' }, { accessorKey: 'trigger', header: 'Trigger' },
   ], []);
@@ -70,12 +62,12 @@ export function WorkflowsPage() {
     { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' }] },
   ], []);
 
-  const filterFields: FilterField[] = useMemo(() => [
-    { id: 'name', label: 'Name', type: 'text', placeholder: 'Search by name...' },
-    { id: 'type', label: 'Type', type: 'select', options: [{ label: 'All Types', value: '' }, { label: 'Manual', value: 'MANUAL' }, { label: 'Automated', value: 'AUTOMATED' }, { label: 'Triggered', value: 'TRIGGERED' }] },
-    { id: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' }, { label: 'Archived', value: 'ARCHIVED' }] },
-    { id: 'trigger', label: 'Trigger', type: 'text', placeholder: 'Filter by trigger...' },
-    { id: 'createdAt', label: 'Created Date', type: 'date-range' },
+  const filterFields = useMemo(() => [
+    { id: 'name', label: 'Name', type: 'text' as const, placeholder: 'Search by name...' },
+    { id: 'type', label: 'Type', type: 'select' as const, options: [{ label: 'All Types', value: '' }, { label: 'Manual', value: 'MANUAL' }, { label: 'Automated', value: 'AUTOMATED' }, { label: 'Triggered', value: 'TRIGGERED' }] },
+    { id: 'status', label: 'Status', type: 'select' as const, options: [{ label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Draft', value: 'DRAFT' }, { label: 'Archived', value: 'ARCHIVED' }] },
+    { id: 'trigger', label: 'Trigger', type: 'text' as const, placeholder: 'Filter by trigger...' },
+    { id: 'createdAt', label: 'Created Date', type: 'date-range' as const },
   ], []);
 
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
@@ -83,51 +75,36 @@ export function WorkflowsPage() {
     setPageSize(p.pageSize);
   }, []);
 
-  const handleGlobalFilterChange = useCallback((value: string) => {
-    setSearch(value);
-    setPage(0);
-  }, []);
-
   const serverSide = useMemo(() => ({
     manualPagination: true as const,
-    manualSorting: true as const,
-    manualFiltering: false,
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
     onPaginationChange: handlePaginationChange,
-    sorting,
-    onSortingChange: setSorting,
-    onGlobalFilterChange: handleGlobalFilterChange,
-    globalFilter: search,
-  }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
+  }), [page, pageSize, data?.total, handlePaginationChange]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full"  /></div>;
-  return (<div className="h-full flex flex-col space-y-4 overflow-hidden">
-    <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Workflows</h1>
-      <Button onClick={() => { setDialogOpen(true); }}><Workflow size={16} className="mr-1" /> Add Workflow</Button></div>
-    <div className="flex flex-1 min-h-0">
-      <FilterSidebar
-        filterFields={filterFields}
-        activeFilters={activeFilters}
-        onActiveFiltersChange={setActiveFilters}
-        searchQuery={search}
-        onSearchChange={handleGlobalFilterChange}
-        show={showFilter}
-        onToggle={setShowFilter}
-      />
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
-        <DataGrid columns={columns} data={data?.items || []} title="Workflows" enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No workflows found."
-          total={data?.total || 0}
-          serverSide={serverSide}
-          bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-            { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} workflows?`)) bulkDeleteMutation.mutate(ids); } },
-          ]} />}
-            contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-        <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
-          title={editItem ? "Edit Workflow" : "Create Workflow"} fields={formFields}
-          initialValues={editItem || { status: 'DRAFT' }}
-          onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
-      </div>
-    </div>
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  return (<div className="h-full flex flex-col">
+    <AppDataGrid
+      columns={columns} data={data?.items || []} title="Workflows"
+      enableSelection enableSorting enableColumnVisibility enableExport enableDensity enableRowNumber
+      onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]}
+      emptyMessage="No workflows found."
+      total={data?.total || 0}
+      serverSide={serverSide}
+      filterFields={filterFields}
+      bulkActions={[
+        { label: 'Delete', icon: <Trash size={14} />, onClick: (ids: string[]) => { if (confirm(`Delete ${ids.length} workflows?`)) bulkDeleteMutation.mutate(ids); } },
+      ]}
+      tableActions={[
+        { label: 'Add Workflow', icon: <Workflow size={14} />, onClick: () => { setEditItem(null); setDialogOpen(true); }, variant: 'primary' as const },
+        { label: 'Import', icon: <Upload size={14} />, onClick: () => toast.info('Import dialog') },
+        { label: 'Sync', icon: <RefreshCw size={14} />, onClick: () => toast.info('Syncing...') },
+      ]}
+      contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction}
+    />
+    <CrudDialog open={dialogOpen || !!editItem} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      title={editItem ? "Edit Workflow" : "Create Workflow"} fields={formFields}
+      initialValues={editItem || { status: 'DRAFT' }}
+      onSubmit={async (v) => { if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...v }); setEditItem(null); } else { await createMutation.mutateAsync(v); } setDialogOpen(false); }} isPending={createMutation.isPending || updateMutation.isPending} />
   </div>);
 }
