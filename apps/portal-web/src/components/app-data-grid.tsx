@@ -123,7 +123,7 @@ export function AppDataGrid<TData extends { id?: string | number }>({
 }: AppDataGridProps<TData>) {
   const [showFilter, setShowFilter] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [colVis, setColVis] = useState<Record<string, boolean>>({});
   const [denKey, setDenKey] = useState('standard');
@@ -208,25 +208,21 @@ export function AppDataGrid<TData extends { id?: string | number }>({
     setCtxMenu(null);
   }, [contextMenuItems, onContextMenuAction]);
 
-  // ── Add / Remove filters ──
-  const addFilter = (field: FilterField) => {
-    setActiveFilters([...activeFilters, { field: field.id || '', operator: 'contains', value: '' }]);
+  // ── Filter values ──
+  const updateFilterValue = (fieldId: string, val: unknown) => {
+    setFilterValues(prev => ({ ...prev, [fieldId]: val }));
   };
 
-  const removeFilter = (idx: number) => {
-    setActiveFilters(activeFilters.filter((_, i) => i !== idx));
+  const clearFilters = () => {
+    setFilterValues({});
   };
 
-  const updateFilter = (idx: number, field: string, val: unknown) => {
-    setActiveFilters(prev => prev.map((f, i) => i === idx ? { ...f, [field]: val } : f));
-  };
-
-  // ── Connect sidebar activeFilters → TanStack columnFilters ──
+  // ── Connect sidebar filterValues → TanStack columnFilters ──
   const dataGridColumnFilters = useMemo(() => {
-    return activeFilters
-      .filter(f => f.value !== '' && f.value !== undefined && f.value !== null)
-      .map(f => ({ id: f.field, value: f.value }));
-  }, [activeFilters]);
+    return Object.entries(filterValues)
+      .filter(([_, v]) => v !== '' && v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0))
+      .map(([id, value]) => ({ id, value }));
+  }, [filterValues]);
 
   const dataGridServerSide = useMemo(() => ({
     ...(serverSide || {}),
@@ -237,112 +233,99 @@ export function AppDataGrid<TData extends { id?: string | number }>({
   // ── Render filter sidebar ──
   const renderFilterSidebar = () => {
     if (!showFilter) return null;
+    const hasAnyValue = Object.values(filterValues).some(v => v !== '' && v !== undefined && v !== null);
     return (
       <>
         {/* Overlay backdrop on mobile */}
         <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setShowFilter(false)} />
-        <div className="fixed left-0 top-0 z-50 h-full w-72 border-r bg-card overflow-y-auto p-3 space-y-2 shadow-xl lg:static lg:z-auto lg:shadow-none lg:border-r lg:h-auto lg:overflow-visible lg:w-72 shrink-0">
-          <div className="flex items-center justify-between">
+        <div className="fixed left-0 top-0 z-50 h-full w-72 border-r bg-card overflow-y-auto shadow-xl lg:static lg:z-auto lg:shadow-none lg:border-r lg:h-auto lg:overflow-visible lg:w-72 shrink-0 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-3 shrink-0">
             <h3 className="font-semibold text-sm flex items-center gap-1"><Filter size={14} /> Filters</h3>
             <button className="rounded p-1 hover:bg-accent lg:hidden" onClick={() => setShowFilter(false)}><X size={14} /></button>
           </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Search all…"
-            className="h-8 w-full rounded-md border bg-background pl-8 pr-8 text-sm outline-none focus:border-primary"
-            value={searchQuery} onChange={e => handleSearch(e.target.value)} />
-          {searchQuery && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => handleSearch('')}><X size={14} /></button>}
-        </div>
+          {/* Search */}
+          <div className="px-3 pb-2 shrink-0">
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input type="text" placeholder="Search all…"
+                className="h-8 w-full rounded-md border bg-background pl-8 pr-8 text-sm outline-none focus:border-primary"
+                value={searchQuery} onChange={e => handleSearch(e.target.value)} />
+              {searchQuery && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => handleSearch('')}><X size={14} /></button>}
+            </div>
+          </div>
 
-        {/* Filter field selector */}
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Add filter</p>
-          <div className="flex flex-wrap gap-1.5">
-            {visibleFilterFields.filter(f => !activeFilters.find(af => af.field === f.id)).map(f => (
-              <button key={f.id}
-                className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent hover:border-primary/40 transition-colors"
-                onClick={() => addFilter(f)}>
-                <span className="text-muted-foreground">+</span> {f.label}
-              </button>
-            ))}
-            {visibleFilterFields.every(f => activeFilters.find(af => af.field === f.id)) && (
-              <p className="text-xs text-muted-foreground italic">All filters added</p>
+          {/* All filter fields shown directly */}
+          <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-3 min-h-0">
+            {visibleFilterFields.map(field => {
+              const val = filterValues[field.id] ?? '';
+              return (
+                <div key={field.id} className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{field.label}</label>
+                  {field.type === 'text' && (
+                    <input className="w-full rounded border bg-background px-2 py-1.5 text-xs" placeholder={field.placeholder || `Filter by ${field.label.toLowerCase()}...`}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'select' && field.options && (
+                    <select className="w-full rounded border bg-background px-2 py-1.5 text-xs" value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)}>
+                      <option value="">All</option>
+                      {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  )}
+                  {field.type === 'multi-select' && field.options && (
+                    <div className="max-h-32 overflow-y-auto space-y-1 rounded border bg-background p-2">
+                      {field.options.map(o => (
+                        <label key={o.value} className="flex items-center gap-2 text-xs">
+                          <input type="checkbox" className="h-3 w-3" checked={String(val).includes(o.value)}
+                            onChange={() => {
+                              const vals = val ? String(val).split(',') : [];
+                              const idx = vals.indexOf(o.value);
+                              if (idx >= 0) vals.splice(idx, 1); else vals.push(o.value);
+                              updateFilterValue(field.id, vals.join(','));
+                            }} />
+                          {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {field.type === 'checkbox' && (
+                    <label className="flex items-center gap-2 text-xs rounded border bg-background px-2 py-1.5">
+                      <input type="checkbox" className="h-3 w-3" checked={Boolean(val)} onChange={e => updateFilterValue(field.id, e.target.checked)} />
+                      Enabled
+                    </label>
+                  )}
+                  {field.type === 'date-range' && (
+                    <div className="flex gap-1">
+                      <input type="date" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" value={String(val).split(',')[0] || ''} onChange={e => updateFilterValue(field.id, e.target.value + ',')} />
+                      <input type="date" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" value={String(val).split(',')[1] || ''} onChange={e => updateFilterValue(field.id, (String(val).split(',')[0] || '') + ',' + e.target.value)} />
+                    </div>
+                  )}
+                  {field.type === 'number-range' && (
+                    <div className="flex gap-1">
+                      <input type="number" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" placeholder="Min" value={String(val).split(',')[0] || ''} onChange={e => updateFilterValue(field.id, e.target.value + ',')} />
+                      <input type="number" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" placeholder="Max" value={String(val).split(',')[1] || ''} onChange={e => updateFilterValue(field.id, (String(val).split(',')[0] || '') + ',' + e.target.value)} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {visibleFilterFields.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">No filters available.</p>
             )}
           </div>
-        </div>
 
-        {/* Active filters */}
-        {activeFilters.map((af, idx) => {
-          const fieldDef = visibleFilterFields.find(f => f.id === af.field);
-          if (!fieldDef) return null;
-          return (
-            <div key={idx} className="rounded-lg border p-2 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">{fieldDef.label}</span>
-                <button className="rounded p-0.5 text-red-500 hover:bg-red-50" onClick={() => removeFilter(idx)}><X size={12} /></button>
-              </div>
-              {fieldDef.type === 'text' && (
-                <input className="w-full rounded border bg-background px-2 py-1 text-xs" placeholder={fieldDef.placeholder || 'Filter...'}
-                  value={String(af.value)} onChange={e => updateFilter(idx, 'value', e.target.value)} />
-              )}
-              {fieldDef.type === 'select' && fieldDef.options && (
-                <select className="w-full rounded border bg-background px-2 py-1 text-xs" value={String(af.value)} onChange={e => updateFilter(idx, 'value', e.target.value)}>
-                  <option value="">All</option>
-                  {fieldDef.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              )}
-              {fieldDef.type === 'multi-select' && fieldDef.options && (
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {fieldDef.options.map(o => (
-                    <label key={o.value} className="flex items-center gap-2 text-xs">
-                      <input type="checkbox" className="h-3 w-3" checked={String(af.value).includes(o.value)}
-                        onChange={() => {
-                          const current = String(af.value);
-                          const vals = current ? current.split(',') : [];
-                          const idx2 = vals.indexOf(o.value);
-                          if (idx2 >= 0) vals.splice(idx2, 1); else vals.push(o.value);
-                          updateFilter(idx, 'value', vals.join(','));
-                        }} />
-                      {o.label}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {fieldDef.type === 'checkbox' && (
-                <label className="flex items-center gap-2 text-xs">
-                  <input type="checkbox" className="h-3 w-3" checked={Boolean(af.value)} onChange={e => updateFilter(idx, 'value', e.target.checked)} />
-                  Enabled
-                </label>
-              )}
-              {fieldDef.type === 'date-range' && (
-                <div className="flex gap-1">
-                  <input type="date" className="flex-1 rounded border bg-background px-2 py-1 text-xs" value={String(af.value).split(',')[0] || ''} onChange={e => updateFilter(idx, 'value', e.target.value + ',')} />
-                  <input type="date" className="flex-1 rounded border bg-background px-2 py-1 text-xs" value={String(af.value).split(',')[1] || ''} onChange={e => updateFilter(idx, 'value', (String(af.value).split(',')[0] || '') + ',' + e.target.value)} />
-                </div>
-              )}
-              {fieldDef.type === 'number-range' && (
-                <div className="flex gap-1">
-                  <input type="number" className="flex-1 rounded border bg-background px-2 py-1 text-xs" placeholder="Min" value={String(af.value).split(',')[0] || ''} onChange={e => updateFilter(idx, 'value', e.target.value + ',')} />
-                  <input type="number" className="flex-1 rounded border bg-background px-2 py-1 text-xs" placeholder="Max" value={String(af.value).split(',')[1] || ''} onChange={e => updateFilter(idx, 'value', (String(af.value).split(',')[0] || '') + ',' + e.target.value)} />
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {activeFilters.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">No filters applied. Click a filter above to add.</p>
-        )}
-
-        {/* Apply/Clear */}
-        {activeFilters.length > 0 && (
-          <div className="flex gap-2 pt-2">
-            <button className="flex-1 rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90" onClick={() => setActiveFilters(prev => [...prev])}>Apply</button>
-            <button className="rounded bg-muted px-3 py-1.5 text-xs hover:bg-accent" onClick={() => setActiveFilters([])}>Clear</button>
+          {/* Apply/Clear at bottom */}
+          <div className="flex gap-2 border-t p-3 shrink-0">
+            <button className="flex-1 rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              onClick={() => {
+                // Force re-evaluate by updating state reference (already live, but gives user feedback)
+                setFilterValues(prev => ({ ...prev }));
+              }}>Apply</button>
+            <button className="flex-1 rounded bg-muted px-3 py-1.5 text-xs hover:bg-accent"
+              onClick={clearFilters}>Clear</button>
           </div>
-        )}
-      </div>
+        </div>
       </>
     );
   };
