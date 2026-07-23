@@ -234,4 +234,22 @@ export class UsersService {
       })),
     };
   }
+
+  async search(q?: string, limit: number = 10) {
+    const where: any = { deletedAt: null };
+    if (q) {
+      where.OR = [
+        { username: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { displayName: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    const data = await this.prisma.client.user.findMany({
+      where,
+      take: Math.min(limit, 50),
+      orderBy: [{ isOnline: 'desc' } as any, { username: 'asc' }],
+      select: { id: true, username: true, email: true, displayName: true },
+    });
+    return { data: data.map(u => ({ ...u, label: u.displayName || u.username })) };
+  }
 }

@@ -27,6 +27,13 @@ export class RolesController {
    return this.rolesService.findAll({ page: page ? Number(page) : undefined, limit: limit ? Number(limit) : undefined, search, sortField, sortDir });
  }
 
+  @Get('search')
+  @Permissions('manage:roles')
+  @ApiOperation({ summary: 'Search roles by name (for instant-search filter)' })
+  async search(@Query('q') q?: string, @Query('limit') limit?: number) {
+    return this.rolesService.search(q, limit);
+  }
+
   @Get(':id')
   @Permissions('manage:roles')
   @ApiOperation({ summary: 'Get role by ID' })

@@ -126,4 +126,16 @@ export class RolesService {
       })),
     };
   }
+
+  async search(q?: string, limit: number = 10) {
+    const where: any = { deletedAt: null };
+    if (q) where.name = { contains: q, mode: 'insensitive' };
+    const data = await this.prisma.client.role.findMany({
+      where,
+      take: Math.min(limit, 50),
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, description: true },
+    });
+    return { data };
+  }
 }

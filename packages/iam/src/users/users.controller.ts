@@ -60,6 +60,13 @@ export class UsersController {
     });
   }
 
+  @Get('search')
+  @Permissions('read:users', 'manage:users')
+  @ApiOperation({ summary: 'Search users by username/email (for instant-search filter)' })
+  async search(@Query('q') q?: string, @Query('limit') limit?: number) {
+    return this.usersService.search(q, limit);
+  }
+
   @Get(':id')
   @Permissions('read:users', 'manage:users')
   @ApiOperation({ summary: 'Get user by ID' })
