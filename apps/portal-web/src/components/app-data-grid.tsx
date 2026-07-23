@@ -5,17 +5,44 @@ import { DataGrid, type DataGridColumn } from '@platform/ui';
 import { usePermission, hasPermission } from '@platform/hooks';
 import { useAuthStore } from '@platform/hooks';
 import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pin, Pencil, Trash2, ExternalLink, Settings } from 'lucide-react';
+import { InstantSearchControl } from './filters/instant-search-control';
+import { BoundarySearchControl } from './filters/boundary-search-control';
 
 // ─── Types ───────────────────────────────────────────────────────
 
 interface FilterField {
   id: string;
   label: string;
-  type: 'text' | 'select' | 'multi-select' | 'checkbox' | 'date-range' | 'number-range';
+  type: 'text' | 'select' | 'multi-select' | 'checkbox' | 'date-range' | 'number-range'
+    | 'date' | 'number' | 'email' | 'url' | 'phone' | 'boolean'
+    | 'date-time-range' | 'date-time' | 'time-range' | 'tags' | 'entity'
+    | 'instant-search' | 'boundary-search';
   options?: { label: string; value: string }[];
   placeholder?: string;
   /** Required permission to see this filter field */
   permission?: string | string[];
+  /** Enable multi-select mode (default: false) */
+  multiple?: boolean;
+  /** API endpoint for instant-search / boundary-search (e.g. '/api/v1/roles/search') */
+  endpoint?: string;
+  /** Field name to display in suggestion list (e.g. 'username', 'name') */
+  displayField?: string;
+  /** Field name to use as filter value (default: 'id') */
+  valueField?: string;
+  /** Input type for boundary-search: 'text' | 'number' | 'date' | 'time' (default: 'text') */
+  inputType?: 'text' | 'number' | 'date' | 'time';
+  /** Request debounce delay in ms (default: 300) */
+  debounceMs?: number;
+  /** Max results to fetch (default: 10) */
+  resultLimit?: number;
+  /** Min value / boundary start (for boundary-search, number) */
+  boundaryMin?: number | string;
+  /** Max value / boundary end (for boundary-search, number) */
+  boundaryMax?: number | string;
+  /** Entity type for entity selector */
+  entityType?: string;
+  /** Step value for number input */
+  step?: number;
 }
 
 interface ActiveFilter {
@@ -268,10 +295,35 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                       value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
                   )}
                   {field.type === 'select' && field.options && (
-                    <select className="w-full rounded border bg-background px-2 py-1.5 text-xs" value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)}>
-                      <option value="">All</option>
-                      {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    field.multiple ? (
+                      <div className="max-h-40 overflow-y-auto space-y-1 rounded border bg-background p-2">
+                        {field.options.map(o => (
+                          <label key={o.value} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5">
+                            <input type="checkbox" className="h-3 w-3 rounded border-gray-300"
+                              checked={String(val).split(',').includes(o.value)}
+                              onChange={() => {
+                                const current = val ? String(val).split(',').filter(Boolean) : [];
+                                const idx = current.indexOf(o.value);
+                                if (idx >= 0) current.splice(idx, 1);
+                                else current.push(o.value);
+                                updateFilterValue(field.id, current.join(','));
+                              }} />
+                            <span>{o.label}</span>
+                          </label>
+                        ))}
+                        {String(val).split(',').filter(Boolean).length > 0 && (
+                          <div className="flex items-center justify-between border-t pt-1 mt-1">
+                            <span className="text-[10px] text-muted-foreground">{String(val).split(',').filter(Boolean).length} selected</span>
+                            <button className="text-[10px] text-red-500 hover:text-red-700" onClick={() => updateFilterValue(field.id, '')}>Clear</button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <select className="w-full rounded border bg-background px-2 py-1.5 text-xs" value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)}>
+                        <option value="">All</option>
+                        {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    )
                   )}
                   {field.type === 'multi-select' && field.options && (
                     <div className="max-h-32 overflow-y-auto space-y-1 rounded border bg-background p-2">
@@ -306,6 +358,132 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                       <input type="number" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" placeholder="Min" value={String(val).split(',')[0] || ''} onChange={e => updateFilterValue(field.id, e.target.value + ',')} />
                       <input type="number" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs" placeholder="Max" value={String(val).split(',')[1] || ''} onChange={e => updateFilterValue(field.id, (String(val).split(',')[0] || '') + ',' + e.target.value)} />
                     </div>
+                  )}
+                  {field.type === 'date' && (
+                    <input type="date" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'number' && (
+                    <input type="number" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      placeholder={field.placeholder || 'Number...'}
+                      min={field.boundaryMin} max={field.boundaryMax} step={field.step}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'email' && (
+                    <input type="email" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      placeholder={field.placeholder || 'Email...'}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'url' && (
+                    <input type="url" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      placeholder={field.placeholder || 'https://...'}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'phone' && (
+                    <input type="tel" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      placeholder={field.placeholder || '+84...'}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'boolean' && (
+                    <select className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)}>
+                      <option value="">All</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  )}
+                  {field.type === 'date-time-range' && (
+                    <div className="flex gap-1">
+                      <input type="datetime-local" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs"
+                        value={String(val).split(',')[0] || ''}
+                        onChange={e => updateFilterValue(field.id, e.target.value + ',')} />
+                      <input type="datetime-local" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs"
+                        value={String(val).split(',')[1] || ''}
+                        onChange={e => updateFilterValue(field.id, (String(val).split(',')[0] || '') + ',' + e.target.value)} />
+                    </div>
+                  )}
+                  {field.type === 'date-time' && (
+                    <input type="datetime-local" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'time-range' && (
+                    <div className="flex gap-1">
+                      <input type="time" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs"
+                        value={String(val).split(',')[0] || ''}
+                        onChange={e => updateFilterValue(field.id, e.target.value + ',')} />
+                      <input type="time" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs"
+                        value={String(val).split(',')[1] || ''}
+                        onChange={e => updateFilterValue(field.id, (String(val).split(',')[0] || '') + ',' + e.target.value)} />
+                    </div>
+                  )}
+                  {field.type === 'tags' && (
+                    <div className="space-y-1">
+                      {val && String(val).split(',').filter(Boolean).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {String(val).split(',').filter(Boolean).map((tag: string, ti: number) => (
+                            <span key={ti} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium">
+                              {tag}
+                              <button className="rounded-full p-0.5 hover:bg-primary/20" onClick={() => {
+                                const tags = String(val).split(',').filter(Boolean);
+                                tags.splice(ti, 1);
+                                updateFilterValue(field.id, tags.join(','));
+                              }}><X size={10} /></button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-1">
+                        <input type="text" className="flex-1 rounded border bg-background px-2 py-1.5 text-xs"
+                          placeholder={field.placeholder || 'Type and press comma...'}
+                          value={String(val).split(',').pop() || ''}
+                          onChange={e => {
+                            const input = e.target.value;
+                            if (input.endsWith(',') || input.endsWith('\uff0c')) {
+                              const existing = val ? String(val).split(',').filter(Boolean) : [];
+                              const newTag = input.slice(0, -1).trim();
+                              if (newTag && !existing.includes(newTag)) existing.push(newTag);
+                              updateFilterValue(field.id, existing.join(',') + ',');
+                            } else {
+                              const existing = val ? String(val).split(',').filter(Boolean).slice(0, -1) : [];
+                              existing.push(input);
+                              updateFilterValue(field.id, existing.join(','));
+                            }
+                          }} />
+                      </div>
+                    </div>
+                  )}
+                  {field.type === 'entity' && (
+                    <input type="text" className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      placeholder={field.placeholder || `Search ${field.entityType || 'entity'}...`}
+                      value={String(val)} onChange={e => updateFilterValue(field.id, e.target.value)} />
+                  )}
+                  {field.type === 'instant-search' && (
+                    <InstantSearchControl
+                      endpoint={field.endpoint || '/api/v1/users'}
+                      displayField={field.displayField}
+                      valueField={field.valueField}
+                      debounceMs={field.debounceMs}
+                      resultLimit={field.resultLimit}
+                      value={String(val)}
+                      onChange={v => updateFilterValue(field.id, v)}
+                      placeholder={field.placeholder || `Search ${field.label.toLowerCase()}...`}
+                      multiple={field.multiple}
+                    />
+                  )}
+                  {field.type === 'boundary-search' && (
+                    <BoundarySearchControl
+                      endpoint={field.endpoint}
+                      displayField={field.displayField}
+                      valueField={field.valueField}
+                      boundaryMin={field.boundaryMin}
+                      boundaryMax={field.boundaryMax}
+                      value={String(val)}
+                      onChange={v => updateFilterValue(field.id, v)}
+                      fromPlaceholder={field.placeholder || 'From'}
+                      toPlaceholder="To"
+                      inputType={field.inputType || 'text'}
+                      multiple={field.multiple}
+                    />
                   )}
                 </div>
               );
