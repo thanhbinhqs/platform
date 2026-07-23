@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } fro
 import { DataGrid, type DataGridColumn } from '@platform/ui';
 import { usePermission, hasPermission } from '@platform/hooks';
 import { useAuthStore } from '@platform/hooks';
-import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pin, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Download, Plus, Upload, RefreshCw, Filter, X, Columns, SlidersHorizontal, Eye, EyeOff, Pin, Pencil, Trash2, ExternalLink, Settings } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -137,18 +137,15 @@ export function AppDataGrid<TData extends { id?: string | number }>({
 
   // ── Bulk action dropdown ──
   const [showBulk, setShowBulk] = useState(false);
-  const [showColMenu, setShowColMenu] = useState(false);
-  const [showDenMenu, setShowDenMenu] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [columnSticky, setColumnSticky] = useState<Record<string, 'left' | 'right' | null>>({});
-  const colMenuRef = useRef<HTMLDivElement>(null);
-  const denMenuRef = useRef<HTMLDivElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus on click outside
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false);
-      if (denMenuRef.current && !denMenuRef.current.contains(e.target as Node)) setShowDenMenu(false);
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) setShowSettingsMenu(false);
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setCtxMenu(null);
     };
     document.addEventListener('mousedown', handleClick);
@@ -397,68 +394,84 @@ export function AppDataGrid<TData extends { id?: string | number }>({
             {canExport && (
               <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
             )}
-            {canShowColVis && (
-              <div className="relative" ref={colMenuRef}>
-                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
-                  onClick={() => setShowColMenu(!showColMenu)}><Columns size={14} /> Columns</button>
-                {showColMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border bg-card shadow-xl">
-                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                      <Columns size={13} /> Column Settings
-                    </div>
-                    <div className="max-h-72 overflow-y-auto py-1">
-                    {columns.map((c, i) => {
-                      const id = (c as any).accessorKey || (c as any).id || String(i);
-                      const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
-                      if (id.startsWith('__')) return null;
-                      const vis = colVis[id] !== false;
-                      const stickyPos = columnSticky[id] ?? null;
-                      return (
-                        <div key={id} className="flex items-center gap-1.5 px-2 py-1.5 text-sm hover:bg-accent/30 group">
-                          <button className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors" title={vis ? 'Hide' : 'Show'}
-                            onClick={() => setColVis({ ...colVis, [id]: !vis })}>
-                            {vis ? <Eye size={13} /> : <EyeOff size={13} />}
-                          </button>
-                          <span className={`flex-1 truncate text-xs ${vis ? 'text-foreground' : 'text-muted-foreground/40 line-through'}`}>{hdr}</span>
-                          {vis && (
-                            <div className="flex items-center border rounded-md overflow-hidden shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                              <button
-                                className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
-                                  ${stickyPos === 'left' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
-                                title="Pin left — column stays fixed when scrolling horizontally"
-                                onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
-                                <Pin size={10} />
-                                <span>Left</span>
-                              </button>
-                              <div className="w-px h-4 bg-border shrink-0" />
-                              <button
-                                className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
-                                  ${stickyPos === 'right' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
-                                title="Pin right — column stays fixed when scrolling horizontally"
-                                onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
-                                <Pin size={10} className="rotate-90" />
-                                <span>Right</span>
-                              </button>
-                            </div>
-                          )}
+            {(canShowColVis || canShowDensity) && (
+              <div className="relative" ref={settingsMenuRef}>
+                <button className="inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-xs font-medium hover:bg-accent"
+                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                  title="Table settings"><Settings size={14} /></button>
+                {showSettingsMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border bg-card shadow-xl max-h-[80vh] flex flex-col">
+                    {/* Column settings */}
+                    {canShowColVis && (
+                      <>
+                        <div className="flex items-center gap-1.5 border-b px-3 py-2 text-xs font-semibold text-muted-foreground shrink-0">
+                          <Columns size={13} /> Column Settings
                         </div>
-                      );
-                    })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {canShowDensity && (
-              <div className="relative" ref={denMenuRef}>
-                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent"
-                  onClick={() => setShowDenMenu(!showDenMenu)}><SlidersHorizontal size={14} /> {DENSITY_MAP[denKey]?.label ?? 'Density'}</button>
-                {showDenMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border bg-card shadow-xl">
-                    {Object.entries(DENSITY_MAP).map(([k, d]) => (
-                      <button key={k} className={`flex w-full items-center px-3 py-1.5 text-sm hover:bg-accent ${denKey === k ? 'font-semibold text-primary' : ''}`}
-                        onClick={() => { setDenKey(k); setShowDenMenu(false); }}>{d.label}</button>
-                    ))}
+                        <div className="overflow-y-auto py-1 shrink min-h-0 flex-1">
+                          {columns.map((c, i) => {
+                            const id = (c as any).accessorKey || (c as any).id || String(i);
+                            const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
+                            if (id.startsWith('__')) return null;
+                            const vis = colVis[id] !== false;
+                            const stickyPos = columnSticky[id] ?? null;
+                            return (
+                              <div key={id} className="flex items-center gap-1.5 px-2 py-1.5 text-sm hover:bg-accent/30 group">
+                                <button className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors" title={vis ? 'Hide' : 'Show'}
+                                  onClick={() => setColVis({ ...colVis, [id]: !vis })}>
+                                  {vis ? <Eye size={13} /> : <EyeOff size={13} />}
+                                </button>
+                                <span className={`flex-1 truncate text-xs ${vis ? 'text-foreground' : 'text-muted-foreground/40 line-through'}`}>{hdr}</span>
+                                {vis && (
+                                  <div className="flex items-center border rounded-md overflow-hidden shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                        ${stickyPos === 'left' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                      title="Pin left — column stays fixed when scrolling horizontally"
+                                      onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
+                                      <Pin size={10} />
+                                      <span>Left</span>
+                                    </button>
+                                    <div className="w-px h-4 bg-border shrink-0" />
+                                    <button
+                                      className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                        ${stickyPos === 'right' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                      title="Pin right — column stays fixed when scrolling horizontally"
+                                      onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
+                                      <Pin size={10} className="rotate-90" />
+                                      <span>Right</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                    {/* Density settings */}
+                    {canShowDensity && (
+                      <>
+                        {canShowColVis && <div className="border-t shrink-0" />}
+                        <div className="px-3 py-2 shrink-0">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
+                            <SlidersHorizontal size={13} /> Density
+                          </p>
+                          <div className="flex gap-1">
+                            {Object.entries(DENSITY_MAP).map(([k, d]) => (
+                              <button key={k}
+                                className={`flex-1 rounded px-2 py-1 text-xs font-medium border transition-colors ${
+                                  denKey === k
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background hover:bg-accent border-border'
+                                }`}
+                                onClick={() => { setDenKey(k); }}>
+                                {d.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
