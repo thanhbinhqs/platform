@@ -1,98 +1,213 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DataGrid, type DataGridColumn, Skeleton, Button } from '@platform/ui';
+import { Skeleton } from '@platform/ui';
 import { toast } from '@platform/hooks';
-import { Filter, Trash, Trash2, Key, Pencil, ToggleLeft, UserPlus } from 'lucide-react';
+import { Trash2, Pencil, ToggleLeft, Key, UserPlus, Upload, RefreshCw } from 'lucide-react';
+import { AppDataGrid } from '../components/app-data-grid';
 import { CrudDialog, ConfirmDialog, type CrudField } from '../components/crud-dialog';
-import { BulkActions, type BulkAction } from '../components/bulk-actions';
-import { FilterSidebar, type FilterField, type ActiveFilter } from '../components/filter-sidebar';
 
-interface User { id: string; username: string; email: string; displayName?: string; status?: string; isActive?: boolean; role?: { id: string; name: string } | string; roleId?: string; createdAt: string; [key: string]: unknown; }
+interface AppUser {
+  id: string;
+  username: string;
+  email: string;
+  displayName?: string;
+  status?: string;
+  isActive?: boolean;
+  role?: { id: string; name: string } | string;
+  roleId?: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
 
 export function UsersPage() {
   const qc = useQueryClient();
-  const [selection, setSelection] = useState<User[]>([]);
+  const [selection, setSelection] = useState<AppUser[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editItem, setEditItem] = useState<User | null>(null);
-  const [deleteItem, setDeleteItem] = useState<User | null>(null);
-  const [resetPwdItem, setResetPwdItem] = useState<User | null>(null);
+  const [editItem, setEditItem] = useState<AppUser | null>(null);
+  const [deleteItem, setDeleteItem] = useState<AppUser | null>(null);
+  const [resetPwdItem, setResetPwdItem] = useState<AppUser | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(15);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sorting, setSorting] = useState<any[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [activeFilters, setActiveFilters] = useState<any[]>([]);
+  const [filtersDirty, setFiltersDirty] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['users', page, pageSize, debouncedSearch, sorting, activeFilters],
-    queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page + 1), limit: String(pageSize) });
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (sorting.length > 0) { params.set('sortField', sorting[0].id); params.set('sortDir', sorting[0].desc ? 'desc' : 'asc'); }
-      activeFilters.filter(f => f.value !== '' && f.value !== undefined && f.value !== null).forEach(f => {
-        params.set(`filter[${f.field}]`, String(f.value));
+  // Pack filter values into URL params
+  const filterParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (sorting.length > 0) {
+      params.sortField = sorting[0].id;
+      params.sortDir = sorting[0].desc ? 'desc' : 'asc';
+    }
+    // Flatten activeFilters into filter[field]=value
+    activeFilters
+      .filter((f: any) => f.value !== '' && f.value !== undefined && f.value !== null)
+      .forEach((f: any) => {
+        params[`filter[${f.field}]`] = String(f.value);
       });
-      const r = await fetch(`/api/v1/users?${params.toString()}`, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } });
+    return params;
+  }, [debouncedSearch, sorting, activeFilters, filtersDirty]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['users', page, pageSize, filterParams, filtersDirty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: String(page + 1),
+        limit: String(pageSize),
+        ...filterParams,
+      });
+      const r = await fetch(`/api/v1/users?${params.toString()}`, {
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+      });
       const j = await r.json();
       const d = j?.data || j;
-      return { items: (d?.data || d || []) as User[], total: d?.total || 0 };
+      return { items: (d?.data || d || []) as AppUser[], total: d?.total || 0 };
     },
   });
-  const { data: roles } = useQuery({ queryKey: ['roles-list'], queryFn: async () => { const r = await fetch('/api/v1/roles', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); const j = await r.json(); const d = j?.data || j; return (d?.data || d || []) as { id: string; name: string }[]; } });
 
-  const createMutation = useMutation({ mutationFn: async (body: any) => { const r = await fetch('/api/v1/users', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); }, onError: (e: Error) => toast.error(e.message) });
-  const updateMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User updated'); }, onError: (e: Error) => toast.error(e.message) });
-  const deleteMutation = useMutation({ mutationFn: async (id: string) => { const r = await fetch(`/api/v1/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') } }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User deleted'); }, onError: (e: Error) => toast.error(e.message) });
-  const resetPwdMutation = useMutation({ mutationFn: async ({ id, ...body }: any) => { const r = await fetch(`/api/v1/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify(body) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { toast.success('Password reset'); setResetPwdItem(null); }, onError: (e: Error) => toast.error(e.message) });
-  const toggleStatusMutation = useMutation({ mutationFn: async ({ id, isActive }: any) => { const r = await fetch(`/api/v1/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ isActive: !isActive }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User status toggled'); }, onError: (e: Error) => toast.error(e.message) });
-  const bulkDeleteMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deleted'); }, onError: (e: Error) => toast.error(e.message) });
-  const bulkActivateMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/activate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users activated'); }, onError: (e: Error) => toast.error(e.message) });
-  const bulkDeactivateMutation = useMutation({ mutationFn: async (ids: string[]) => { const r = await fetch('/api/v1/users/bulk/deactivate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') }, body: JSON.stringify({ ids }) }); if (!r.ok) throw new Error((await r.json()).message || 'Failed'); return r.json(); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deactivated'); }, onError: (e: Error) => toast.error(e.message) });
+  const { data: roles } = useQuery({
+    queryKey: ['roles-list'],
+    queryFn: async () => {
+      const r = await fetch('/api/v1/roles', {
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+      });
+      const j = await r.json();
+      const d = j?.data || j;
+      return (d?.data || d || []) as { id: string; name: string }[];
+    },
+  });
+
+  // ── Mutations ──
+
+  const createMutation = useMutation({
+    mutationFn: async (body: any) => {
+      const r = await fetch('/api/v1/users', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...body }: any) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User updated'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User deleted'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetPwdMutation = useMutation({
+    mutationFn: async ({ id, ...body }: any) => {
+      const r = await fetch(`/api/v1/users/${id}/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { toast.success('Password reset'); setResetPwdItem(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await fetch('/api/v1/users/bulk/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deleted'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const bulkActivateMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await fetch('/api/v1/users/bulk/activate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users activated'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const bulkDeactivateMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await fetch('/api/v1/users/bulk/deactivate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Users deactivated'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: any) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('accessToken') },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message || 'Failed');
+      return r.json();
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User status toggled'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // ── Data ──
 
   const roleOptions = useMemo(() => (roles || []).map((r: any) => ({ label: r.name, value: r.id })), [roles]);
 
-  const contextMenuItems = useMemo(() => [
-    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
-    { label: 'Reset Password', icon: <Key size={14} />, action: 'reset-password' },
-    { label: 'Toggle Active', icon: <ToggleLeft size={14} />, action: 'toggle-active' },
-    { divider: true },
-    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  // ── Columns ──
+
+  const columns = useMemo<any>(() => [
+    { accessorKey: 'username', header: 'Username', size: 180, minSize: 120 },
+    { accessorKey: 'email', header: 'Email', size: 260, minSize: 180 },
+    { accessorKey: 'displayName', header: 'Display Name', size: 180, minSize: 120, cell: (info: any) => (info.getValue() as string) || '—' },
+    { accessorKey: 'role', header: 'Role', size: 160, minSize: 100, cell: (info: any) => { const v = info.getValue(); return typeof v === 'object' && v ? (v as any).name : (v as string) || '—'; } },
+    { accessorKey: 'isActive', header: 'Active', size: 100, minSize: 70, cell: (info: any) => info.getValue() !== false ? '✅' : '❌', meta: { align: 'center' as const } },
+    { accessorKey: 'createdAt', header: 'Joined', size: 140, minSize: 90, cell: (info: any) => new Date(info.getValue() as string).toLocaleDateString(), meta: { align: 'right' as const } },
   ], []);
 
-    const handleContextMenuAction = useCallback((action: string, row: any) => {
-    switch (action) {
-      case 'edit': toast.info(`Edit: ${row.name || row.id}`); break;
-      case 'reset-password': toast.info(`Reset password: ${row.name || row.id}`); break;
-      case 'toggle-active': toast.info(`Toggle: ${row.name || row.id}`); break;
-      case 'delete': if (confirm(`Delete ${row.name || row.id}?`)) bulkDeleteMutation.mutate([row.id]); break;
-    }
-  }, [bulkDeleteMutation]);
-
-  const columns = useMemo<DataGridColumn<User>[]>(() => [
-    { accessorKey: 'username', header: 'Username' },
-    { accessorKey: 'email', header: 'Email' },
-    { accessorKey: 'displayName', header: 'Display Name', cell: ({ getValue }) => (getValue() as string) || '—' },
-    { accessorKey: 'role', header: 'Role', cell: ({ getValue }) => { const v = getValue(); return typeof v === 'object' && v ? (v as any).name : (v as string) || '—'; } },
-    { accessorKey: 'isActive', header: 'Active', cell: ({ getValue }) => getValue() !== false ? '✅' : '❌' },
-    { accessorKey: 'createdAt', header: 'Joined', cell: ({ getValue }) => new Date(getValue() as string).toLocaleDateString() },
-    { id: 'actions', header: '', cell: ({ row }) => {
-      const u = row.original;
-      return (
-        <div className="flex gap-1">
-          <button className="p-1 hover:text-primary" title="Edit" onClick={() => { setEditItem(u); setDialogOpen(true); }}><Pencil size={14}  /></button>
-          <button className="p-1 hover:text-amber-500" title="Reset Password" onClick={() => setResetPwdItem(u)}><Key size={14} /></button>
-          <button className="p-1 hover:text-purple-500" title="Toggle Status" onClick={() => toggleStatusMutation.mutate({ id: u.id, isActive: u.isActive }) }><ToggleLeft size={14} /></button>
-          <button className="p-1 hover:text-red-500" title="Delete" onClick={() => setDeleteItem(u)}><Trash2 size={14} /></button>
-        </div>
-      );
-    }},
-  ], []);
+  // ── Form Fields (CRUD) ──
 
   const formFields: CrudField[] = useMemo(() => [
     { name: 'username', label: 'Username', required: true },
@@ -103,23 +218,67 @@ export function UsersPage() {
     { name: 'isActive', label: 'Active', type: 'boolean' },
   ], [editItem, roleOptions]);
 
-  const filterFields: FilterField[] = useMemo(() => [
-    { id: 'username', label: 'Username', type: 'text', placeholder: 'Search username...' },
-    { id: 'email', label: 'Email', type: 'text', placeholder: 'Search email...' },
-    { id: 'displayName', label: 'Display Name', type: 'text', placeholder: 'Search display name...' },
-    { id: 'isActive', label: 'Active', type: 'checkbox' },
-    { id: 'roleId', label: 'Role', type: 'select', options: roleOptions, placeholder: 'Select role...' },
-    { id: 'createdAt', label: 'Created At', type: 'date-range' },
+  // ── Filter Fields (sidebar) ──
+
+  const filterFields = useMemo(() => [
+    { id: 'username', label: 'Username', type: 'text' as const, placeholder: 'Search username...' },
+    { id: 'email', label: 'Email', type: 'text' as const, placeholder: 'Search email...' },
+    { id: 'displayName', label: 'Display Name', type: 'text' as const, placeholder: 'Search display name...' },
+    { id: 'isActive', label: 'Active', type: 'checkbox' as const },
+    { id: 'roleId', label: 'Role', type: 'select' as const, options: roleOptions, placeholder: 'Select role...' },
+    { id: 'createdAt', label: 'Created At', type: 'date-range' as const },
   ], [roleOptions]);
+
+  // ── Bulk Actions ──
+
+  const bulkActions = useMemo(() => [
+    { label: 'Delete', icon: <Trash2 size={14} />, onClick: (ids: string[]) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); } },
+    { label: 'Activate', icon: <ToggleLeft size={14} />, onClick: (ids: string[]) => bulkActivateMutation.mutate(ids) },
+    { label: 'Deactivate', icon: <ToggleLeft size={14} />, onClick: (ids: string[]) => bulkDeactivateMutation.mutate(ids) },
+  ], []);
+
+  // ── Table Actions (top header) ──
+
+  const tableActions = useMemo(() => [
+    { label: 'Add User', icon: <UserPlus size={14} />, onClick: () => { setEditItem(null); setDialogOpen(true); }, variant: 'primary' as const },
+    { label: 'Import', icon: <Upload size={14} />, onClick: () => toast.info('Import dialog (coming soon)') },
+    { label: 'Sync', icon: <RefreshCw size={14} />, onClick: () => toast.info('Syncing with directory...') },
+  ], []);
+
+  // ── Context Menu ──
+
+  const contextMenuItems = useMemo(() => [
+    { label: 'Edit', icon: <Pencil size={14} />, action: 'edit' },
+    { label: 'Reset Password', icon: <Key size={14} />, action: 'reset-password' },
+    { label: 'Toggle Active', icon: <ToggleLeft size={14} />, action: 'toggle-active' },
+    { divider: true as const },
+    { label: 'Delete', icon: <Trash2 size={14} />, action: 'delete' },
+  ], []);
+
+  const handleContextMenuAction = useCallback((action: string, row: any) => {
+    const u = row as AppUser;
+    switch (action) {
+      case 'edit':
+        setEditItem(u);
+        setDialogOpen(true);
+        break;
+      case 'reset-password':
+        setResetPwdItem(u);
+        break;
+      case 'toggle-active':
+        toggleStatusMutation.mutate({ id: u.id, isActive: u.isActive });
+        break;
+      case 'delete':
+        setDeleteItem(u);
+        break;
+    }
+  }, [toggleStatusMutation]);
+
+  // ── Pagination ──
 
   const handlePaginationChange = useCallback((p: { pageIndex: number; pageSize: number }) => {
     setPage(p.pageIndex);
     setPageSize(p.pageSize);
-  }, []);
-
-  const handleGlobalFilterChange = useCallback((value: string) => {
-    setSearch(value);
-    setPage(0);
   }, []);
 
   const serverSide = useMemo(() => ({
@@ -129,65 +288,96 @@ export function UsersPage() {
     pageCount: Math.ceil((data?.total || 0) / pageSize),
     pagination: { pageIndex: page, pageSize },
     onPaginationChange: handlePaginationChange,
-    sorting,
     onSortingChange: setSorting,
-    onGlobalFilterChange: handleGlobalFilterChange,
-    globalFilter: search,
-  }), [page, pageSize, data?.total, handlePaginationChange, sorting, search]);
+  }), [page, pageSize, data?.total, handlePaginationChange, sorting]);
 
-  if (isLoading) return <div className="flex items-center justify-center py-16"><Skeleton className="h-8 w-8 rounded-full" /></div>;
+  // ── Form Submit ──
+
+  const handleSubmit = useCallback(async (values: any) => {
+    const payload = { ...values };
+    if (editItem && !payload.password) delete payload.password;
+    if (editItem) {
+      await updateMutation.mutateAsync({ id: editItem.id, ...payload });
+    } else {
+      await createMutation.mutateAsync(payload);
+    }
+    setDialogOpen(false);
+    setEditItem(null);
+  }, [editItem, createMutation, updateMutation]);
+
+  // ── Loading State ──
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center py-16">
+        <Skeleton className="h-8 w-8 rounded-full" />
+      </div>
+    );
+  }
+
+  // ── Render ──
 
   return (
-    <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Users</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)}><Filter size={16} /></Button>
-          <Button onClick={() => { setEditItem(null); setDialogOpen(true); }}><UserPlus size={16} className="mr-1" /> Add User</Button></div></div>
-      <div className="flex flex-1 gap-4 overflow-hidden">
-        <FilterSidebar
-          filterFields={filterFields}
-          activeFilters={activeFilters}
-          onActiveFiltersChange={setActiveFilters}
-          searchQuery={search}
-          onSearchChange={handleGlobalFilterChange}
-          show={showFilters}
-          onToggle={setShowFilters}
-        />
-      <DataGrid enableSearch columns={columns} data={data?.items || []} title="Users" enableSelection enableRowNumber enableSorting enableColumnVisibility enableExport enableDensity
-        onSelectionChange={setSelection} pageSize={pageSize} pageSizeOptions={[10, 15, 25, 50, 100]} emptyMessage="No users found."
+    <div className="h-full flex flex-col">
+      <AppDataGrid
+        columns={columns}
+        data={data?.items || []}
+        title="Users"
+        filterFields={filterFields}
+        bulkActions={bulkActions}
+        tableActions={tableActions}
+        enableSelection
+        enableRowNumber
+        enableSorting
+        enableExport
+        enableColumnResize
+        enableColumnVisibility
+        enableDensity
+        pageSize={pageSize}
+        pageSizeOptions={[10, 15, 25, 50, 100]}
         total={data?.total || 0}
+        onSelectionChange={setSelection}
+        emptyMessage="No users found."
+        loading={isLoading}
         serverSide={serverSide}
-        bulkActions={<BulkActions selectedIds={selection.map(s => s.id)} actions={[
-          { label: 'Delete', icon: <Trash size={14} />, onClick: (ids) => { if (confirm(`Delete ${ids.length} users?`)) bulkDeleteMutation.mutate(ids); }, variant: 'destructive' },
-          { label: 'Activate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkActivateMutation.mutate(ids) },
-          { label: 'Deactivate', icon: <ToggleLeft size={14} />, onClick: (ids) => bulkDeactivateMutation.mutate(ids) },
-        ]} />}
-        contextMenuItems={contextMenuItems} onContextMenuAction={handleContextMenuAction} />
-      </div>
+        contextMenuItems={contextMenuItems}
+        onContextMenuAction={handleContextMenuAction}
+      />
 
       {/* Create/Edit Dialog */}
-      <CrudDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditItem(null); }}
         title={editItem ? `Edit User: ${editItem.username}` : 'Create User'}
-        fields={formFields} initialValues={editItem ? { ...editItem, roleId: editItem.roleId || (typeof editItem.role === 'object' ? (editItem.role as any)?.id : '') } : { isActive: true }}
-        onSubmit={async (v) => {
-          const payload = { ...v };
-          if (editItem && !payload.password) delete payload.password;
-          if (editItem) { await updateMutation.mutateAsync({ id: editItem.id, ...payload }); }
-          else { await createMutation.mutateAsync(payload); }
-          setDialogOpen(false); setEditItem(null);
-        }} isPending={createMutation.isPending || updateMutation.isPending} />
+        fields={formFields}
+        initialValues={editItem ? {
+          ...editItem,
+          roleId: editItem.roleId || (typeof editItem.role === 'object' ? (editItem.role as any)?.id : ''),
+        } : { isActive: true }}
+        onSubmit={handleSubmit}
+        isPending={createMutation.isPending || updateMutation.isPending}
+      />
 
       {/* Reset Password Dialog */}
-      <CrudDialog open={!!resetPwdItem} onOpenChange={(o) => { if (!o) setResetPwdItem(null); }}
+      <CrudDialog
+        open={!!resetPwdItem}
+        onOpenChange={(o) => { if (!o) setResetPwdItem(null); }}
         title={`Reset Password — ${resetPwdItem?.username || ''}`}
         fields={[{ name: 'newPassword', label: 'New Password', type: 'password', required: true }]}
         initialValues={{}}
-        onSubmit={async (v) => { if (resetPwdItem) { await resetPwdMutation.mutateAsync({ id: resetPwdItem.id, password: v.newPassword }); } }} isPending={resetPwdMutation.isPending} />
+        onSubmit={async (v) => { if (resetPwdItem) { await resetPwdMutation.mutateAsync({ id: resetPwdItem.id, password: v.newPassword }); } }}
+        isPending={resetPwdMutation.isPending}
+      />
 
       {/* Delete Confirm */}
-      <ConfirmDialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
-        title="Delete User" message={`Delete user "${deleteItem?.username}" (${deleteItem?.email})? This cannot be undone.`}
-        onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }} isPending={deleteMutation.isPending} />
+      <ConfirmDialog
+        open={!!deleteItem}
+        onOpenChange={(o) => { if (!o) setDeleteItem(null); }}
+        title="Delete User"
+        message={`Delete user "${deleteItem?.username}" (${deleteItem?.email})? This cannot be undone.`}
+        onConfirm={async () => { await deleteMutation.mutateAsync(deleteItem!.id); setDeleteItem(null); }}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }
