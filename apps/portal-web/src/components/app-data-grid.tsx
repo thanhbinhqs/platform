@@ -544,32 +544,112 @@ export function AppDataGrid<TData extends { id?: string | number }>({
           </div>
 
           {/* Right: Actions + Settings */}
-          <div className="flex items-center gap-1 ml-auto">
-            <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
+          <div className="flex items-center gap-1 ml-auto max-sm:gap-0">
             {isMobile ? (
               <>
-                {visibleTableActions.filter(a => a.variant === 'primary').map((a, i) => (
-                  <button key={i} className="inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={a.onClick}>{a.icon} {a.label}</button>
-                ))}
-                {(visibleTableActions.length > 0 || visibleBulkActions.length > 0) && (
+                {visibleTableActions.filter(a => a.variant === 'primary').length > 0 && (
+                  <button className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                    onClick={visibleTableActions.find(a => a.variant === 'primary')!.onClick}
+                    title={visibleTableActions.find(a => a.variant === 'primary')!.label}>
+                    {visibleTableActions.find(a => a.variant === 'primary')!.icon || <Plus size={14} />}
+                  </button>
+                )}
+                {(visibleTableActions.length > 0 || visibleBulkActions.length > 0 || canExport || canShowColVis || canShowDensity) && (
                   <div className="relative">
                     <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-xs font-medium hover:bg-accent"
                       onClick={() => setShowBulk(prev => !prev)} title="More actions">⁝</button>
                     {showBulk && (
                       <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setShowBulk(false)}>
                         <div className="absolute inset-0 bg-black/30" />
-                        <div className="absolute bottom-0 left-0 right-0 rounded-t-xl bg-card p-2 shadow-xl animate-slide-up"
+                        <div className="absolute bottom-0 left-0 right-0 rounded-t-xl bg-card p-2 shadow-xl animate-slide-up max-h-[70vh] flex flex-col"
                           onClick={e => e.stopPropagation()}>
-                          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-muted" />
-                          {visibleTableActions.map((a, i) => (
-                            <button key={i} className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent ${a.variant === 'primary' ? 'font-semibold' : ''}`}
-                              onClick={() => { a.onClick(); setShowBulk(false); }}>{a.icon} {a.label}</button>
-                          ))}
-                          {visibleTableActions.length > 0 && visibleBulkActions.length > 0 && <div className="mx-4 my-1 border-t" />}
-                          {visibleBulkActions.map((a, i) => (
-                            <button key={i} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent"
-                              onClick={() => { a.onClick(selectedIds); setShowBulk(false); }}>{a.icon} {a.label}</button>
-                          ))}
+                          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-muted shrink-0" />
+                          <div className="overflow-y-auto flex-1 min-h-0">
+                            {/* Refresh */}
+                            <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent"
+                              onClick={() => { handleSearch(''); setShowBulk(false); }}><RefreshCw size={16} /> Refresh</button>
+                            {visibleTableActions.length > 0 && <div className="mx-4 my-1 border-t" />}
+                            {/* Table actions */}
+                            {visibleTableActions.map((a, i) => (
+                              <button key={i} className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent ${a.variant === 'primary' ? 'font-semibold text-primary' : ''}`}
+                                onClick={() => { a.onClick(); setShowBulk(false); }}>{a.icon} {a.label}</button>
+                            ))}
+                            {visibleTableActions.length > 0 && visibleBulkActions.length > 0 && <div className="mx-4 my-1 border-t" />}
+                            {/* Bulk actions */}
+                            {visibleBulkActions.map((a, i) => (
+                              <button key={i} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent"
+                                onClick={() => { a.onClick(selectedIds); setShowBulk(false); }}>{a.icon} {a.label}</button>
+                            ))}
+                            {(visibleBulkActions.length > 0 || visibleTableActions.length > 0) && <div className="mx-4 my-1 border-t" />}
+                            {/* Export */}
+                            {canExport && (
+                              <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors hover:bg-accent"
+                                onClick={() => { setShowBulk(false); }}><Download size={16} /> Export</button>
+                            )}
+                            <div className="mx-4 my-1 border-t" />
+                            {/* Settings */}
+                            {(canShowColVis || canShowDensity) && (
+                              <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
+                                onClick={() => { setShowBulk(false); setShowSettingsMenu(true); }}>
+                                <Settings size={16} /> Table Settings
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Mobile settings bottom sheet (separate from overflow menu) */}
+                    {showSettingsMenu && (canShowColVis || canShowDensity) && (
+                      <div className="fixed inset-0 z-[60]" onClick={() => setShowSettingsMenu(false)}>
+                        <div className="absolute inset-0 bg-black/30" />
+                        <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] rounded-t-xl bg-card p-4 shadow-xl flex flex-col"
+                          onClick={e => e.stopPropagation()}>
+                          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted shrink-0" />
+                          {canShowColVis && (
+                            <>
+                              <div className="flex items-center gap-1.5 px-1 py-2 text-xs font-semibold text-muted-foreground shrink-0">
+                                <Columns size={13} /> Column Settings
+                              </div>
+                              <div className="overflow-y-auto py-1 flex-1 min-h-0 space-y-0.5">
+                                {columns.map((c, i) => {
+                                  const id = (c as any).accessorKey || (c as any).id || String(i);
+                                  const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
+                                  if (id.startsWith('__')) return null;
+                                  const vis = colVis[id] !== false;
+                                  return (
+                                    <label key={id} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-accent cursor-pointer">
+                                      <input type="checkbox" className="h-4 w-4 rounded border-gray-300" checked={vis}
+                                        onChange={() => setColVis({ ...colVis, [id]: !vis })} />
+                                      <span className={`flex-1 ${vis ? 'text-foreground' : 'text-muted-foreground/50 line-through'}`}>{hdr}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                          {canShowDensity && (
+                            <>
+                              {canShowColVis && <div className="border-t my-2 shrink-0" />}
+                              <div className="px-1 py-2 shrink-0">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
+                                  <SlidersHorizontal size={13} /> Density
+                                </p>
+                                <div className="flex gap-2">
+                                  {Object.entries(DENSITY_MAP).map(([k, d]) => (
+                                    <button key={k}
+                                      className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium border transition-colors ${
+                                        denKey === k
+                                          ? 'bg-primary text-primary-foreground border-primary'
+                                          : 'bg-background hover:bg-accent border-border'
+                                      }`}
+                                      onClick={() => { setDenKey(k); }}>
+                                      {d.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
@@ -578,65 +658,79 @@ export function AppDataGrid<TData extends { id?: string | number }>({
               </>
             ) : (
               <>
+                <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
                 {visibleTableActions.map((a, i) => (
                   <button key={i} className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium border bg-background hover:bg-accent ${a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
                     onClick={a.onClick}>
                     {a.icon} {a.label}
                   </button>
                 ))}
-              </>
-            )}
-            <span className="mx-1 h-5 w-px bg-border" />
-            {canExport && (
-              <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
-            )}
-            {(canShowColVis || canShowDensity) && (
-              <div className="relative" ref={settingsMenuRef}>
-                <button className="inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-xs font-medium hover:bg-accent"
-                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                  title="Table settings"><Settings size={14} /></button>
-                {showSettingsMenu && (
-                  isMobile ? (
-                    <div className="fixed inset-0 z-50" onClick={() => setShowSettingsMenu(false)}>
-                      <div className="absolute inset-0 bg-black/30" />
-                      <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] rounded-t-xl bg-card p-4 shadow-xl flex flex-col"
-                        onClick={e => e.stopPropagation()}>
-                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted shrink-0" />
-                        {/* Column settings */}
+                <span className="mx-1 h-5 w-px bg-border" />
+                {canExport && (
+                  <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => {}}><Download size={14} /> Export</button>
+                )}
+                {(canShowColVis || canShowDensity) && (
+                  <div className="relative" ref={settingsMenuRef}>
+                    <button className="inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-xs font-medium hover:bg-accent"
+                      onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                      title="Table settings"><Settings size={14} /></button>
+                    {showSettingsMenu && (
+                      <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border bg-card shadow-xl max-h-[80vh] flex flex-col">
                         {canShowColVis && (
                           <>
-                            <div className="flex items-center gap-1.5 px-1 py-2 text-xs font-semibold text-muted-foreground shrink-0">
+                            <div className="flex items-center gap-1.5 border-b px-3 py-2 text-xs font-semibold text-muted-foreground shrink-0">
                               <Columns size={13} /> Column Settings
                             </div>
-                            <div className="overflow-y-auto py-1 flex-1 min-h-0 space-y-0.5">
+                            <div className="overflow-y-auto py-1 shrink min-h-0 flex-1">
                               {columns.map((c, i) => {
                                 const id = (c as any).accessorKey || (c as any).id || String(i);
                                 const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
                                 if (id.startsWith('__')) return null;
                                 const vis = colVis[id] !== false;
+                                const stickyPos = columnSticky[id] ?? null;
                                 return (
-                                  <label key={id} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-accent cursor-pointer">
-                                    <input type="checkbox" className="h-4 w-4 rounded border-gray-300" checked={vis}
-                                      onChange={() => setColVis({ ...colVis, [id]: !vis })} />
-                                    <span className={`flex-1 ${vis ? 'text-foreground' : 'text-muted-foreground/50 line-through'}`}>{hdr}</span>
-                                  </label>
+                                  <div key={id} className="flex items-center gap-1.5 px-2 py-1.5 text-sm hover:bg-accent/30 group">
+                                    <button className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors" title={vis ? 'Hide' : 'Show'}
+                                      onClick={() => setColVis({ ...colVis, [id]: !vis })}>
+                                      {vis ? <Eye size={13} /> : <EyeOff size={13} />}
+                                    </button>
+                                    <span className={`flex-1 truncate text-xs ${vis ? 'text-foreground' : 'text-muted-foreground/40 line-through'}`}>{hdr}</span>
+                                    {vis && (
+                                      <div className="flex items-center border rounded-md overflow-hidden shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                            ${stickyPos === 'left' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                          title="Pin left"
+                                          onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
+                                          <Pin size={10} /><span>Left</span>
+                                        </button>
+                                        <div className="w-px h-4 bg-border shrink-0" />
+                                        <button
+                                          className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
+                                            ${stickyPos === 'right' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
+                                          title="Pin right"
+                                          onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
+                                          <Pin size={10} className="rotate-90" /><span>Right</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 );
                               })}
                             </div>
                           </>
                         )}
-                        {/* Density settings */}
                         {canShowDensity && (
                           <>
-                            {canShowColVis && <div className="border-t my-2 shrink-0" />}
-                            <div className="px-1 py-2 shrink-0">
-                              <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
+                            {canShowColVis && <div className="border-t shrink-0" />}
+                            <div className="px-3 py-2 shrink-0">
+                              <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
                                 <SlidersHorizontal size={13} /> Density
                               </p>
-                              <div className="flex gap-2">
+                              <div className="flex gap-1">
                                 {Object.entries(DENSITY_MAP).map(([k, d]) => (
                                   <button key={k}
-                                    className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium border transition-colors ${
+                                    className={`flex-1 rounded px-2 py-1 text-xs font-medium border transition-colors ${
                                       denKey === k
                                         ? 'bg-primary text-primary-foreground border-primary'
                                         : 'bg-background hover:bg-accent border-border'
@@ -650,84 +744,10 @@ export function AppDataGrid<TData extends { id?: string | number }>({
                           </>
                         )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border bg-card shadow-xl max-h-[80vh] flex flex-col">
-                      {/* Column settings */}
-                      {canShowColVis && (
-                        <>
-                          <div className="flex items-center gap-1.5 border-b px-3 py-2 text-xs font-semibold text-muted-foreground shrink-0">
-                            <Columns size={13} /> Column Settings
-                          </div>
-                          <div className="overflow-y-auto py-1 shrink min-h-0 flex-1">
-                            {columns.map((c, i) => {
-                              const id = (c as any).accessorKey || (c as any).id || String(i);
-                              const hdr = typeof (c as any).header === 'string' ? (c as any).header : id;
-                              if (id.startsWith('__')) return null;
-                              const vis = colVis[id] !== false;
-                              const stickyPos = columnSticky[id] ?? null;
-                              return (
-                                <div key={id} className="flex items-center gap-1.5 px-2 py-1.5 text-sm hover:bg-accent/30 group">
-                                  <button className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors" title={vis ? 'Hide' : 'Show'}
-                                    onClick={() => setColVis({ ...colVis, [id]: !vis })}>
-                                    {vis ? <Eye size={13} /> : <EyeOff size={13} />}
-                                  </button>
-                                  <span className={`flex-1 truncate text-xs ${vis ? 'text-foreground' : 'text-muted-foreground/40 line-through'}`}>{hdr}</span>
-                                  {vis && (
-                                    <div className="flex items-center border rounded-md overflow-hidden shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                                      <button
-                                        className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
-                                          ${stickyPos === 'left' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
-                                        title="Pin left — column stays fixed when scrolling horizontally"
-                                        onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'left' ? null : 'left' })}>
-                                        <Pin size={10} />
-                                        <span>Left</span>
-                                      </button>
-                                      <div className="w-px h-4 bg-border shrink-0" />
-                                      <button
-                                        className={`inline-flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none transition-colors
-                                          ${stickyPos === 'right' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground'}`}
-                                        title="Pin right — column stays fixed when scrolling horizontally"
-                                        onClick={() => setColumnSticky({ ...columnSticky, [id]: stickyPos === 'right' ? null : 'right' })}>
-                                        <Pin size={10} className="rotate-90" />
-                                        <span>Right</span>
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                      {/* Density settings */}
-                      {canShowDensity && (
-                        <>
-                          {canShowColVis && <div className="border-t shrink-0" />}
-                          <div className="px-3 py-2 shrink-0">
-                            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
-                              <SlidersHorizontal size={13} /> Density
-                            </p>
-                            <div className="flex gap-1">
-                              {Object.entries(DENSITY_MAP).map(([k, d]) => (
-                                <button key={k}
-                                  className={`flex-1 rounded px-2 py-1 text-xs font-medium border transition-colors ${
-                                    denKey === k
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'bg-background hover:bg-accent border-border'
-                                  }`}
-                                  onClick={() => { setDenKey(k); }}>
-                                  {d.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
