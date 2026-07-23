@@ -360,6 +360,8 @@ export function AppDataGrid<TData extends { id?: string | number }>({
         {/* Table header: Title + Bulk Actions + Actions */}
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 mb-1 shrink-0">
           <div className="flex items-center gap-2">
+            <button className={`inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent text-primary' : ''}`}
+              onClick={() => setShowFilter(!showFilter)} title={showFilter ? 'Hide filters' : 'Show filters'}><Filter size={14} /></button>
             {title && <h2 className="text-sm font-bold tracking-tight">{title}</h2>}
             {/* Bulk actions dropdown */}
             {selectedIds.length > 0 && visibleBulkActions.length > 0 && (
@@ -384,8 +386,6 @@ export function AppDataGrid<TData extends { id?: string | number }>({
 
           {/* Right: Actions + Settings */}
           <div className="flex items-center gap-1 ml-auto">
-            <button className={`inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent ${showFilter ? 'bg-accent' : ''}`}
-              onClick={() => setShowFilter(!showFilter)}><Filter size={14} /> Filters</button>
             <button className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-medium hover:bg-accent" onClick={() => handleSearch('')}><RefreshCw size={14} /></button>
             {visibleTableActions.map((a, i) => (
               <button key={i} className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium border bg-background hover:bg-accent ${a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
